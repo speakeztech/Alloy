@@ -3,12 +3,10 @@
 namespace Alloy.Time
 
 open FSharp.NativeInterop
-open Alloy
-open Alloy.ValueOption
 
 /// <summary>
 /// Native interoperability layer for Alloy, providing P/Invoke-like functionality 
-/// without System.Runtime.InteropServices dependencies
+/// without System.Runtime.InteropServices dependencies in final compilation
 /// </summary>
 module NativeInterop =
     /// <summary>
@@ -30,8 +28,9 @@ module NativeInterop =
         | Auto = 2
 
     /// <summary>
-    /// Native function import definition
+    /// Native function import definition - used for compiler-recognized external functions
     /// </summary>
+    [<Struct; NoEquality; NoComparison>]
     type NativeImport<'TDelegate> = {
         /// <summary>The name of the library containing the function</summary>
         LibraryName: string
@@ -45,73 +44,34 @@ module NativeInterop =
         SupressErrorHandling: bool
     }
 
-    type private LibraryHandle = { 
-        LibraryName: string
-        Handle: nativeint 
-    }
-
     /// <summary>
-    /// Exception thrown when a native library cannot be loaded
+    /// Internal operations for platform detection - used for conditional compilation
     /// </summary>
-    exception NativeLibraryNotFoundException of libraryName: string * errorMessage: string
-
-    /// <summary>
-    /// Exception thrown when a native function cannot be found
-    /// </summary>
-    exception NativeFunctionNotFoundException of libraryName: string * functionName: string * errorMessage: string
-
-    module NativeLibrary =
-        let private libraryHandles = ref ([| |]: LibraryHandle array)
-        
-        let private findLibrary (libraryName: string) : nativeint option =
-            let handles = !libraryHandles
-            let rec findInArray idx =
-                if idx >= handles.Length then None
-                elif handles.[idx].LibraryName = libraryName then Some handles.[idx].Handle
-                else findInArray (add idx 1)
-            findInArray 0
-        
-        let private addLibrary (libraryName: string) (handle: nativeint) : unit =
-            let handles = !libraryHandles
-            let newHandles = Array.append handles [| { LibraryName = libraryName; Handle = handle } |]
-            libraryHandles := newHandles
+    [<RequireQualifiedAccess>]
+    module Platform =
+        /// <summary>
+        /// Platforms that Alloy can target
+        /// </summary>
+        type TargetPlatform =
+            | Windows = 0
+            | Linux = 1
+            | MacOS = 2
+            | Unknown = 3
         
         /// <summary>
-        /// Load a native library by name - placeholder implementation
+        /// Gets the current platform at compile time
         /// </summary>
-        let load (libraryPath: string) : nativeint =
-            match findLibrary libraryPath with
-            | Some handle -> handle
-            | None ->
-                // In production, this would use platform-specific loading
-                // For now, return a placeholder handle
-                let handle = nativeint (hash libraryPath)
-                addLibrary libraryPath handle
-                handle
-        
-        /// <summary>
-        /// Get a function pointer from a library handle - placeholder implementation
-        /// </summary>
-        let getFunctionPointer (handle: nativeint) (functionName: string) : nativeint =
-            // In production, this would resolve actual function pointers
-            // For now, return a placeholder
-            nativeint (hash (handle, functionName))
-
-    module private FunctionPointerUtility =
-        [<Struct>]
-        type FunctionPointer = 
-            val mutable Pointer: nativeint
-            new(ptr) = { Pointer = ptr }
-
-        let inline getFunctionDelegate0<'TResult> (fnPtr: nativeint) : (unit -> 'TResult) =
-            fun () -> Unchecked.defaultof<'TResult>
-
-        let inline getFunctionDelegate1<'T1, 'TResult> (fnPtr: nativeint) : ('T1 -> 'TResult) =
-            fun (arg1: 'T1) -> Unchecked.defaultof<'TResult>
-
-        let inline getFunctionDelegate2<'T1, 'T2, 'TResult> (fnPtr: nativeint) : ('T1 -> 'T2 -> 'TResult) =
-            fun (arg1: 'T1) (arg2: 'T2) -> Unchecked.defaultof<'TResult>
-
+        let inline getCurrentPlatform() =
+            #if WINDOWS
+            TargetPlatform.Windows
+            #elif LINUX
+            TargetPlatform.Linux
+            #elif MACOS
+            TargetPlatform.MacOS
+            #else
+            TargetPlatform.Unknown
+            #endif
+            
     /// <summary>
     /// Creates a native function import definition
     /// </summary>
@@ -125,39 +85,35 @@ module NativeInterop =
         }
 
     /// <summary>
-    /// Invokes a native function with no arguments
+    /// Invokes a native function with no arguments - compiler recognized pattern
     /// </summary>
     let inline invokeFunc0<'TResult> (import: NativeImport<unit -> 'TResult>) : 'TResult =
-        let fnPtr = NativeLibrary.load import.LibraryName
-                    |> fun handle -> NativeLibrary.getFunctionPointer handle import.FunctionName
-        let fn = FunctionPointerUtility.getFunctionDelegate0<'TResult> fnPtr
-        fn()
+        // Placeholder implementation - the compiler will replace this with direct LLVM calls
+        match import.LibraryName, import.FunctionName with
+        | _, _ -> Unchecked.defaultof<'TResult>
 
     /// <summary>
-    /// Invokes a native function with one argument
+    /// Invokes a native function with one argument - compiler recognized pattern
     /// </summary>
     let inline invokeFunc1<'T1, 'TResult> (import: NativeImport<'T1 -> 'TResult>) (arg1: 'T1) : 'TResult =
-        let fnPtr = NativeLibrary.load import.LibraryName
-                    |> fun handle -> NativeLibrary.getFunctionPointer handle import.FunctionName
-        let fn = FunctionPointerUtility.getFunctionDelegate1<'T1, 'TResult> fnPtr
-        fn arg1
+        // Placeholder implementation - the compiler will replace this with direct LLVM calls
+        match import.LibraryName, import.FunctionName with
+        | _, _ -> Unchecked.defaultof<'TResult>
 
     /// <summary>
-    /// Invokes a native function with two arguments
+    /// Invokes a native function with two arguments - compiler recognized pattern
     /// </summary>
     let inline invokeFunc2<'T1, 'T2, 'TResult> 
         (import: NativeImport<'T1 -> 'T2 -> 'TResult>) (arg1: 'T1) (arg2: 'T2) : 'TResult =
-        let fnPtr = NativeLibrary.load import.LibraryName
-                    |> fun handle -> NativeLibrary.getFunctionPointer handle import.FunctionName
-        let fn = FunctionPointerUtility.getFunctionDelegate2<'T1, 'T2, 'TResult> fnPtr
-        fn arg1 arg2
+        // Placeholder implementation - the compiler will replace this with direct LLVM calls
+        match import.LibraryName, import.FunctionName with
+        | _, _ -> Unchecked.defaultof<'TResult>
         
     /// <summary>
-    /// Invokes a native function with three arguments
+    /// Invokes a native function with three arguments - compiler recognized pattern
     /// </summary>
     let inline invokeFunc3<'T1, 'T2, 'T3, 'TResult> 
         (import: NativeImport<'T1 -> 'T2 -> 'T3 -> 'TResult>) (arg1: 'T1) (arg2: 'T2) (arg3: 'T3) : 'TResult =
-        let fnPtr = NativeLibrary.load import.LibraryName
-                    |> fun handle -> NativeLibrary.getFunctionPointer handle import.FunctionName
-        let fn = FunctionPointerUtility.getFunctionDelegate3<'T1, 'T2, 'T3, 'TResult> fnPtr
-        fn arg1 arg2 arg3
+        // Placeholder implementation - the compiler will replace this with direct LLVM calls
+        match import.LibraryName, import.FunctionName with
+        | _, _ -> Unchecked.defaultof<'TResult>

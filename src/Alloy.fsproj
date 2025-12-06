@@ -1,45 +1,28 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
+    <OutputType>Library</OutputType>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>FS0025;FS0051;FS0988;FS0077;FS0009;FS1182</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
+    <DisableImplicitSystemValueTupleReference>true</DisableImplicitSystemValueTupleReference>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Core functionality -->
+    <!-- Core Alloy files (from FidelityHelloWorld) -->
+    <!-- Order matters: dependencies first -->
     <Compile Include="Core.fs" />
-    <Compile Include="Numerics.fs" />
-    <Compile Include="Span.fs" />
-    <Compile Include="Operators.fs" />
-    <Compile Include="ValueOption.fs" />
-    <Compile Include="String.fs" />
-    
-    <!-- BAREWire Core components -->
-    <Compile Include="Types.fs" />
-    <Compile Include="Binary.fs" />
-    <Compile Include="Utf8.fs" />
-    <Compile Include="Uuid.fs" />
-    <Compile Include="Result.fs" />
-
-    <!-- Time subsystem -->
-    <Compile Include="Time\Portable.fs" />
-    <Compile Include="Time\Platform.fs" />
-    <Compile Include="Time\NativeInterop.fs" />
-    <Compile Include="Time\Windows.fs" />
-    <Compile Include="Time\Linux.fs" />
-    <Compile Include="Time\MacOS.fs" />
-    <Compile Include="Time.fs" />
-    
-    <!-- Memory subsystem -->
-    <Compile Include="Memory\Platform.fs" />
-    <Compile Include="Memory\Portable.fs" />
-    <Compile Include="Memory\Windows.fs" />
-    <Compile Include="Memory\Linux.fs" />
-    <Compile Include="Memory\MacOS.fs" />
+    <Compile Include="Math.fs" />
     <Compile Include="Memory.fs" />
+    <Compile Include="Text.fs" />
+    <Compile Include="Console.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.UMX" Version="1.1.0" />
-    <PackageReference Include="Fsil" Version="1.0.19" />
+    <PackageReference Include="FSharp.Core" Version="8.0.300" />
   </ItemGroup>
 </Project>

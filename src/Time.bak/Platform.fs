@@ -1,32 +1,44 @@
-namespace Alloy.Memory
+namespace Alloy.Time
+
+open Alloy.ValueOption
 
 /// <summary>
-/// Platform interface definitions for Alloy memory functions
+/// Platform interface definitions for Alloy time functions
 /// </summary>
 module Platform =
     /// <summary>
-    /// Interface for platform-specific memory operations
+    /// Interface for platform-specific time operations
     /// </summary>
-    type IPlatformMemory =
+    type IPlatformTime =
         /// <summary>
-        /// Copies memory from a native pointer to a byte array
+        /// Gets the current time in ticks (100-nanosecond intervals since January 1, 0001)
         /// </summary>
-        abstract member CopyFromNative: source:nativeint -> destination:byte[] -> offset:int -> length:int -> unit
+        abstract member GetCurrentTicks: unit -> int64
         
         /// <summary>
-        /// Copies memory from a byte array to a native pointer
+        /// Gets the current UTC time in ticks
         /// </summary>
-        abstract member CopyToNative: source:byte[] -> offset:int -> destination:nativeint -> length:int -> unit
+        abstract member GetUtcNow: unit -> int64
         
         /// <summary>
-        /// Fills native memory with a specific byte value
+        /// Gets the system time as file time (100-nanosecond intervals since January 1, 1601)
         /// </summary>
-        abstract member FillNative: ptr:nativeint -> value:byte -> length:int -> unit
+        abstract member GetSystemTimeAsFileTime: unit -> int64
         
         /// <summary>
-        /// Compares two native memory regions
+        /// Gets high-resolution performance counter ticks
         /// </summary>
-        abstract member CompareNative: ptr1:nativeint -> ptr2:nativeint -> length:int -> int
+        abstract member GetHighResolutionTicks: unit -> int64
+        
+        /// <summary>
+        /// Gets the frequency of the high-resolution performance counter
+        /// </summary>
+        abstract member GetTickFrequency: unit -> int64
+        
+        /// <summary>
+        /// Sleeps for the specified number of milliseconds
+        /// </summary>
+        abstract member Sleep: milliseconds:int -> unit
 
     /// <summary>
     /// Exception thrown when platform implementation cannot be determined
@@ -37,18 +49,21 @@ module Platform =
     /// Registry for platform implementations
     /// </summary>
     module private PlatformRegistry =
-        let mutable private implementation : IPlatformMemory option = None
+        let mutable private implementation : IPlatformTime option = None
         
         /// <summary>
         /// Registers a platform implementation
         /// </summary>
-        let register (impl: IPlatformMemory) =
+        let register (impl: IPlatformTime) =
             implementation <- Some impl
             
         /// <summary>
         /// Gets the registered implementation
         /// </summary>
-        let get() = implementation
+        let get() =
+            match implementation with
+            | Some impl -> impl
+            | None -> raise (PlatformNotSupportedException "No time platform implementation registered")
     
     /// <summary>
     /// Function to get the appropriate platform implementation
@@ -74,4 +89,4 @@ module Platform =
     /// <summary>
     /// Registers a platform implementation
     /// </summary>
-    let registerImplementation (impl: IPlatformMemory) = PlatformRegistry.register impl
+    let registerImplementation (impl: IPlatformTime) = PlatformRegistry.register impl

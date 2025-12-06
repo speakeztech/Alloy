@@ -1,0 +1,22 @@
+# Alloy - Fidelity Core Library for Native Compilation
+# Self-contained library with no .NET dependencies
+
+[package]
+name = "Alloy"
+version = "0.1.0"
+description = "Core library for Fidelity native compilation"
+authors = ["SpeakEZ LLC"]
+license = "MIT"
+
+[compilation]
+memory_model = "stack_only"
+
+[build]
+# Source files in compilation order (dependencies first)
+sources = [
+    "Core.fs",
+    "Math.fs",
+    "Memory.fs",
+    "Text.fs",
+    "Console.fs"
+]
