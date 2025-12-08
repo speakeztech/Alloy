@@ -1,101 +1,130 @@
 #nowarn "9"
 namespace Alloy
 
-open Alloy.Time.Platform
-open Alloy.Math.Operators
-open Alloy.Math.Functions
+open Alloy.Primitives
 
-/// <summary>
-/// Pure F# time utilities with no System.DateTime dependencies
-/// </summary>
+/// BCL-compatible DateTime type for Fidelity native compilation.
+/// Uses Primitives.getCurrentTicks() extern for actual time retrieval.
+[<Struct>]
+type DateTime = {
+    /// Internal ticks representation (100-nanosecond intervals since 0001-01-01)
+    Ticks: int64
+}
+with
+    /// Gets the year component
+    member this.Year: int =
+        // Simplified calculation - proper calendar math would be more complex
+        int ((this.Ticks / 315360000000000L) + 1L)
+
+    /// Gets the month component (1-12)
+    member this.Month: int = 1  // TODO: Proper calendar calculation
+
+    /// Gets the day component (1-31)
+    member this.Day: int = 1  // TODO: Proper calendar calculation
+
+    /// Gets the hour component (0-23)
+    member this.Hour: int =
+        int ((this.Ticks / 36000000000L) % 24L)
+
+    /// Gets the minute component (0-59)
+    member this.Minute: int =
+        int ((this.Ticks / 600000000L) % 60L)
+
+    /// Gets the second component (0-59)
+    member this.Second: int =
+        int ((this.Ticks / 10000000L) % 60L)
+
+    /// Gets the millisecond component (0-999)
+    member this.Millisecond: int =
+        int ((this.Ticks / 10000L) % 1000L)
+
+    /// Returns a string representation of the DateTime
+    override this.ToString() : string =
+        // Placeholder - would need Text.Format integration
+        "DateTime"
+
+/// BCL-compatible DateTime static members.
+/// Delegates to Primitives.getCurrentTicks() extern for actual time.
+module DateTime =
+    /// Gets the current local date and time.
+    /// Implementation: calls Primitives.getCurrentTicks() which Alex binds to platform syscalls.
+    let inline Now () : DateTime = { Ticks = Primitives.getCurrentTicks() }
+
+    /// Gets the current UTC date and time.
+    /// For now, same as Now (timezone handling would require additional primitives).
+    let inline UtcNow () : DateTime = { Ticks = Primitives.getCurrentTicks() }
+
+    /// Gets today's date with time set to 00:00:00.
+    let inline Today () : DateTime =
+        let ticks = Primitives.getCurrentTicks()
+        let ticksPerDay = 864000000000L
+        { Ticks = (ticks / ticksPerDay) * ticksPerDay }
+
+/// BCL-compatible TimeSpan type
+[<Struct>]
+type TimeSpan = {
+    /// Total ticks (100-nanosecond intervals)
+    Ticks: int64
+}
+with
+    /// Gets the days component
+    member this.Days: int = int (this.Ticks / 864000000000L)
+
+    /// Gets the hours component
+    member this.Hours: int = int ((this.Ticks / 36000000000L) % 24L)
+
+    /// Gets the minutes component
+    member this.Minutes: int = int ((this.Ticks / 600000000L) % 60L)
+
+    /// Gets the seconds component
+    member this.Seconds: int = int ((this.Ticks / 10000000L) % 60L)
+
+    /// Gets the milliseconds component
+    member this.Milliseconds: int = int ((this.Ticks / 10000L) % 1000L)
+
+    /// Gets the total milliseconds
+    member this.TotalMilliseconds: float = float this.Ticks / 10000.0
+
+/// BCL-compatible Thread.Sleep.
+/// Delegates to Primitives.sleep() extern.
+module Threading =
+    module Thread =
+        /// Suspends the current thread for the specified number of milliseconds.
+        /// Implementation: calls Primitives.sleep() which Alex binds to nanosleep/Sleep.
+        let inline Sleep (milliseconds: int) : unit =
+            Primitives.sleep(milliseconds)
+
+/// Alloy-specific time utilities (non-BCL).
+/// These provide lower-level access for performance-critical code.
+/// All operations delegate to Primitives externs.
 [<RequireQualifiedAccess>]
 module Time =
-    // [Existing type definitions and constants remain unchanged]
-    
-    /// <summary>
-    /// Gets the platform time implementation at compile time
-    /// </summary>
-    let inline getImplementation() =
-        #if WINDOWS
-        Windows.createImplementation()
-        #elif LINUX
-        Linux.createImplementation()
-        #elif MACOS
-        MacOS.createImplementation()
-        #else
-        Portable.createImplementation()
-        #endif
-    
-    /// <summary>
-    /// Runtime platform time implementation - used for operations that can't be statically resolved
-    /// </summary>
-    let private platformTime = getImplementation()
-    
-    /// <summary>
-    /// Type alias for the platform-specific implementation type
-    /// </summary>
-    type private PlatformType =
-        #if WINDOWS
-        Windows.WindowsTimeImplementation
-        #elif LINUX
-        Linux.LinuxTimeImplementation
-        #elif MACOS
-        MacOS.MacOSTimeImplementation
-        #else
-        Portable.PortableTimeImplementation
-        #endif
-    
-    /// <summary>
-    /// Gets the current time in ticks using static resolution
-    /// </summary>
-    let inline currentTicks (): int64 =
-        TimeOperations.getCurrentTicks<PlatformType>()
-    
-    /// <summary>
-    /// Gets the current Unix timestamp (seconds since 1970-01-01)
-    /// </summary>
-    let inline currentUnixTimestamp (): int64 =
-        let ticks = currentTicks()
-        divide (subtract ticks unixEpochTicks) ticksPerSecond
-    
-    /// <summary>
-    /// Gets the current Unix timestamp with nanosecond precision
-    /// </summary>
-    let inline currentTimestamp (): Timestamp =
-        let ticks = currentTicks()
-        let ticksSinceEpoch = subtract ticks unixEpochTicks
-        let seconds = divide ticksSinceEpoch ticksPerSecond
-        let tickRemainder = modulo ticksSinceEpoch ticksPerSecond
-        let nanoseconds = int (multiply tickRemainder 100L) // Convert 100ns ticks to nanoseconds
-        { Seconds = seconds; Nanoseconds = nanoseconds }
-    
-    /// <summary>
-    /// Gets high-resolution performance counter ticks
-    /// </summary>
-    let inline highResolutionTicks (): int64 =
-        TimeOperations.getHighResolutionTicks<PlatformType>()
-        
-    /// <summary>
-    /// Gets the frequency of the high-resolution performance counter
-    /// </summary>
-    let inline tickFrequency (): int64 =
-        TimeOperations.getTickFrequency<PlatformType>()
-        
-    /// <summary>
-    /// Gets the current timezone offset from UTC in minutes
-    /// Returns positive values for west of UTC, negative for east of UTC
-    /// </summary>
-    let inline getCurrentTimezoneOffsetMinutes (): int =
-        TimeOperations.getTimezoneOffsetMinutes<PlatformType>()
-    
-    // [Rest of the implementation remains unchanged, with any calls to 
-    // platformTime methods replaced with TimeOperations static calls]
-    
-    /// <summary>
-    /// Sleeps for the specified number of milliseconds
-    /// </summary>
-    let inline sleep (milliseconds: int): unit =
-        if lessThan milliseconds 0 then
-            invalidArg "milliseconds" "Sleep duration must be non-negative"
-        
-        TimeOperations.sleep<PlatformType> milliseconds
+    /// Gets the current time in ticks (100-nanosecond intervals since 0001-01-01).
+    /// Delegates to Primitives.getCurrentTicks().
+    let inline currentTicks () : int64 =
+        Primitives.getCurrentTicks()
+
+    /// Gets high-resolution monotonic ticks for timing.
+    /// Delegates to Primitives.getMonotonicTicks().
+    let inline highResolutionTicks () : int64 =
+        Primitives.getMonotonicTicks()
+
+    /// Gets the frequency of the high-resolution timer (ticks per second).
+    /// Delegates to Primitives.getTickFrequency().
+    let inline tickFrequency () : int64 =
+        Primitives.getTickFrequency()
+
+    /// Gets the current Unix timestamp (seconds since 1970-01-01).
+    /// Computed from ticks with epoch conversion.
+    let inline currentUnixTimestamp () : int64 =
+        let ticks = Primitives.getCurrentTicks()
+        // Unix epoch is 1970-01-01, .NET epoch is 0001-01-01
+        // Difference: 621355968000000000 ticks
+        let unixEpochTicks = 621355968000000000L
+        let ticksPerSecond = 10000000L
+        (ticks - unixEpochTicks) / ticksPerSecond
+
+    /// Sleeps for the specified number of milliseconds.
+    /// Delegates to Primitives.sleep().
+    let inline sleep (milliseconds: int) : unit =
+        Primitives.sleep(milliseconds)

@@ -5,9 +5,13 @@ namespace Alloy
 open FSharp.NativeInterop
 open Alloy.NativeTypes
 open Alloy.Memory
+open Alloy.Primitives
 
 /// Low-level console operations using native types only.
 /// No BCL types (System.String, System.Console, etc.) are used.
+///
+/// All I/O operations decompose to calls to Primitives.writeBytes/readBytes,
+/// which are extern declarations. Alex provides platform-specific implementations.
 module Console =
 
     /// Standard file descriptors
@@ -21,18 +25,16 @@ module Console =
     let STDERR_FILENO = 2
 
     // ═══════════════════════════════════════════════════════════════════
-    // Native syscall placeholders - Firefly compiler replaces these
+    // I/O primitives - delegate to Alloy.Primitives extern declarations
     // ═══════════════════════════════════════════════════════════════════
 
-    /// Native write operation - maps to write(fd, buffer, count) syscall
-    [<CompiledName("ConsoleWriteBytes")>]
+    /// Native write operation - delegates to Primitives.writeBytes extern
     let inline writeBytes (fd: int) (buffer: nativeptr<byte>) (count: int) : int =
-        count // Placeholder - compiler will replace with LLVM intrinsic
+        Primitives.writeBytes(fd, NativePtr.toNativeInt buffer, count)
 
-    /// Native read operation - maps to read(fd, buffer, count) syscall
-    [<CompiledName("ConsoleReadBytes")>]
+    /// Native read operation - delegates to Primitives.readBytes extern
     let inline readBytes (fd: int) (buffer: nativeptr<byte>) (maxCount: int) : int =
-        0 // Placeholder - compiler will replace with LLVM intrinsic
+        Primitives.readBytes(fd, NativePtr.toNativeInt buffer, maxCount)
 
     // ═══════════════════════════════════════════════════════════════════
     // Low-level output functions
@@ -205,21 +207,48 @@ module Console =
         NativeStr(ptr, len)
 
     // ═══════════════════════════════════════════════════════════════════
-    // .NET-style aliases (PascalCase)
-    // These provide a familiar API for developers coming from .NET
+    // BCL-compatible string output API
+    // These provide familiar Console.Write/WriteLine signatures.
+    // String overloads convert F# strings to native representation at compile time.
     // ═══════════════════════════════════════════════════════════════════
 
-    /// Writes a NativeStr to stdout (no newline). Alias for 'write'.
-    let inline Write (s: NativeStr) : unit = write s
+    /// Writes a NativeStr to stdout (no newline).
+    let inline WriteNative (s: NativeStr) : unit =
+        write s
 
-    /// Writes a NativeStr to stdout followed by a newline. Alias for 'writeln'.
-    let inline WriteLine (s: NativeStr) : unit = writeln s
+    /// Writes a NativeStr to stdout followed by a newline.
+    let inline WriteLineNative (s: NativeStr) : unit =
+        writeln s
+
+    /// Writes an F# string literal to stdout (no newline).
+    /// Firefly transforms string literals to native byte representation during compilation.
+    let inline Write (s: string) : unit =
+        // For Firefly AOT compilation, string literals become static byte arrays
+        // placed in the data section. The compiler generates direct output from there.
+        // This empty body enables FCS type checking to pass while Firefly handles
+        // the actual code generation for string literals.
+        ()
+
+    /// Writes an F# string literal to stdout followed by a newline.
+    /// Firefly transforms string literals to native byte representation during compilation.
+    let inline WriteLine (s: string) : unit =
+        // For Firefly AOT compilation, string literals become static byte arrays.
+        // This empty body enables FCS type checking to pass.
+        ()
 
     /// Writes just a newline to stdout. Alias for 'writelnEmpty'.
     let inline WriteLineEmpty () : unit = writelnEmpty ()
 
-    /// Reads a line from stdin, returning a NativeStr. Alias for 'readln'.
-    let inline ReadLine (buffer: nativeptr<byte>) (maxLen: int) : NativeStr =
+    /// Reads a line from stdin, returning the input.
+    /// Allocates a 256-byte buffer on the stack internally.
+    /// Returns NativeStr which Firefly treats as compatible with string in BCL-style code.
+    let inline ReadLine () : NativeStr =
+        let buffer = NativePtr.stackalloc<byte> 256
+        readln buffer 256
+
+    /// Reads a line from stdin into a provided buffer, returning a NativeStr.
+    /// Use this when you need explicit control over buffer allocation.
+    let inline ReadLineInto (buffer: nativeptr<byte>) (maxLen: int) : NativeStr =
         readln buffer maxLen
 
     // ═══════════════════════════════════════════════════════════════════

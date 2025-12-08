@@ -20,5 +20,11 @@ sources = [
     "Math.fs",
     "Memory.fs",
     "Text.fs",
-    "Console.fs"
+
+    # Primitives (extern declarations - must come before Console/Time)
+    "Primitives.fs",
+
+    # I/O modules (depend on Primitives)
+    "Console.fs",
+    "Time.fs"
 ]
