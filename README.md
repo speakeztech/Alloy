@@ -1,6 +1,6 @@
 # Alloy
 
-A zero-cost abstractions library for F# extending fsil with additional functional programming capabilities and essential system primitives - all without .NET BCL dependencies.
+A zero-cost abstractions library for F# that is meant to provide native F# replacements for the BCL components.
 
 ## Overview
 
