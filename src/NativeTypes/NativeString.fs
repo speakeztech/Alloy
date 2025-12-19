@@ -1,5 +1,5 @@
 #nowarn "9"
-namespace Alloy.NativeTypes
+namespace Alloy
 
 open FSharp.NativeInterop
 
@@ -14,15 +14,44 @@ module NativeString =
     /// <summary>
     /// A native string is a pointer to UTF-8 bytes plus a length.
     /// This struct is emitted by Firefly as: !llvm.struct<(ptr, i64)>
+    /// API-compatible with BCL string for familiar F# patterns.
     /// </summary>
     [<Struct>]
-    [<NoEquality; NoComparison>]
     type NativeStr =
         val Pointer: nativeptr<byte>
         val Length: int
 
         new (ptr: nativeptr<byte>, len: int) =
             { Pointer = ptr; Length = len }
+
+        /// Indexer for character access (returns char from UTF-8 byte)
+        member this.Item
+            with get(index: int) : char =
+                if index < 0 || index >= this.Length then
+                    char 0
+                else
+                    char (NativePtr.get this.Pointer index)
+
+        /// Checks if this string equals another (byte-by-byte comparison)
+        member this.EqualsStr(other: NativeStr) : bool =
+            if this.Length <> other.Length then false
+            else
+                let mutable equal = true
+                let mutable i = 0
+                while equal && i < this.Length do
+                    if NativePtr.get this.Pointer i <> NativePtr.get other.Pointer i then
+                        equal <- false
+                    i <- i + 1
+                equal
+
+        /// Returns empty string for null-like behavior
+        static member Empty = NativeStr(NativePtr.nullPtr<byte>, 0)
+
+    /// <summary>
+    /// Shadow type for BCL string. When Alloy.NativeTypes is opened,
+    /// 'string' resolves to NativeStr for native compilation.
+    /// </summary>
+    type string = NativeStr
 
     /// <summary>
     /// Creates a NativeStr from a pointer and length.

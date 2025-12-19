@@ -364,7 +364,7 @@ module Math =
             match box x with
             | :? float as f -> sqrtFloat f |> unbox< ^T >
             | :? float32 as f -> sqrtFloat32 f |> unbox< ^T >
-            | _ -> failwith "sqrt not implemented for this type"
+            | _ -> panicwith (ofBytes "sqrt not implemented for this type"B)
         
         // Rounding functions - use custom NativeMath implementations
         let inline ceiling (x: float) = NativeMath.ceiling x
@@ -424,13 +424,13 @@ module Math =
             match box x with
             | :? float as f -> sinFloat f |> unbox< ^T >
             | :? float32 as f -> float32 (sinFloat (float f)) |> unbox< ^T >
-            | _ -> failwith "sin not implemented for this type"
+            | _ -> panicwith (ofBytes "sin not implemented for this type"B)
             
         let inline cos (x: ^T) : ^T =
             match box x with
             | :? float as f -> cosFloat f |> unbox< ^T >
             | :? float32 as f -> float32 (cosFloat (float f)) |> unbox< ^T >
-            | _ -> failwith "cos not implemented for this type"
+            | _ -> panicwith (ofBytes "cos not implemented for this type"B)
             
         let inline tan (x: ^T) : ^T =
             let s = sin x

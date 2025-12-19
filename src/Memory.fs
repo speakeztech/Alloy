@@ -56,7 +56,7 @@ module Memory =
         /// <param name="length">The number of elements to include in the span.</param>
         new (array: 'T[], start: int, length: int) = 
             if start < 0 || length < 0 || start + length > array.Length then
-                failwith "Invalid span parameters"
+                panicwith (ofBytes "Invalid span parameters"B)
             { _array = ValueSome array
               _pointer = ValueNone
               _start = start
@@ -67,7 +67,7 @@ module Memory =
         /// <param name="length">The number of elements accessible from the pointer.</param>
         new (pointer: nativeptr<'T>, length: int) = 
             if length < 0 then
-                failwith "Invalid span length"
+                panicwith (ofBytes "Invalid span length"B)
             { _array = ValueNone
               _pointer = ValueSome pointer
               _start = 0
@@ -78,19 +78,19 @@ module Memory =
         member this.Item 
             with get(index: int) : 'T = 
                 if index < 0 || index >= this._length then
-                    failwith "Index out of range"
+                    panicwith (ofBytes "Index out of range"B)
                 match this._array, this._pointer with
                 | ValueSome arr, ValueNone -> arr[this._start + index]
                 | ValueNone, ValueSome ptr -> getFromPtr ptr index
-                | _ -> failwith "Invalid span state"
+                | _ -> panicwith (ofBytes "Invalid span state"B)
                 
             and set(index: int) (value: 'T) =
                 if index < 0 || index >= this._length then
-                    failwith "Index out of range"
+                    panicwith (ofBytes "Index out of range"B)
                 match this._array, this._pointer with
                 | ValueSome arr, ValueNone -> arr[this._start + index] <- value
                 | ValueNone, ValueSome ptr -> setAtPtr ptr index value
-                | _ -> failwith "Invalid span state"
+                | _ -> panicwith (ofBytes "Invalid span state"B)
         
         /// <summary>Gets the length of the span.</summary>
         member this.Length = this._length
@@ -104,7 +104,7 @@ module Memory =
             | ValueNone, ValueSome ptr ->
                 for i = 0 to this._length - 1 do
                     setAtPtr ptr i Unchecked.defaultof<'T>
-            | _ -> failwith "Invalid span state"
+            | _ -> panicwith (ofBytes "Invalid span state"B)
         
         /// <summary>Fills the span with a specified value.</summary>
         /// <param name="value">The value to fill the span with.</param>
@@ -116,7 +116,7 @@ module Memory =
             | ValueNone, ValueSome ptr ->
                 for i = 0 to this._length - 1 do
                     setAtPtr ptr i value
-            | _ -> failwith "Invalid span state"
+            | _ -> panicwith (ofBytes "Invalid span state"B)
                 
         /// <summary>Copies the contents of this span into another span.</summary>
         /// <param name="destination">The span to copy elements into.</param>
@@ -131,7 +131,7 @@ module Memory =
         /// <returns>A new span representing a slice of this span.</returns>
         member this.Slice(start: int, length: int) =
             if start < 0 || length < 0 || start + length > this._length then
-                failwith "Invalid slice parameters"
+                panicwith (ofBytes "Invalid slice parameters"B)
                 
             match this._array, this._pointer with
             | ValueSome arr, ValueNone ->
@@ -139,7 +139,7 @@ module Memory =
             | ValueNone, ValueSome ptr ->
                 let offsetPtr = addToPtr ptr start
                 Span(offsetPtr, length)
-            | _ -> failwith "Invalid span state"
+            | _ -> panicwith (ofBytes "Invalid span state"B)
     
     /// <summary>
     /// Represents a read-only contiguous region of memory.
@@ -167,7 +167,7 @@ module Memory =
         /// <param name="length">The number of elements to include in the span.</param>
         new (array: 'T[], start: int, length: int) = 
             if start < 0 || length < 0 || start + length > array.Length then
-                failwith "Invalid span parameters"
+                panicwith (ofBytes "Invalid span parameters"B)
             { _array = ValueSome array
               _pointer = ValueNone
               _start = start
@@ -178,7 +178,7 @@ module Memory =
         /// <param name="length">The number of elements accessible from the pointer.</param>
         new (pointer: nativeptr<'T>, length: int) = 
             if length < 0 then
-                failwith "Invalid span length"
+                panicwith (ofBytes "Invalid span length"B)
             { _array = ValueNone
               _pointer = ValueSome pointer
               _start = 0
@@ -189,11 +189,11 @@ module Memory =
         member this.Item 
             with get(index: int) : 'T = 
                 if index < 0 || index >= this._length then
-                    failwith "Index out of range"
+                    panicwith (ofBytes "Index out of range"B)
                 match this._array, this._pointer with
                 | ValueSome arr, ValueNone -> arr[this._start + index]
                 | ValueNone, ValueSome ptr -> getFromPtr ptr index
-                | _ -> failwith "Invalid span state"
+                | _ -> panicwith (ofBytes "Invalid span state"B)
         
         /// <summary>Gets the length of the span.</summary>
         member this.Length = this._length
@@ -211,7 +211,7 @@ module Memory =
         /// <returns>A new read-only span representing a slice of this span.</returns>
         member this.Slice(start: int, length: int) =
             if start < 0 || length < 0 || start + length > this._length then
-                failwith "Invalid slice parameters"
+                panicwith (ofBytes "Invalid slice parameters"B)
                 
             match this._array, this._pointer with
             | ValueSome arr, ValueNone ->
@@ -219,7 +219,7 @@ module Memory =
             | ValueNone, ValueSome ptr ->
                 let offsetPtr = addToPtr ptr start
                 ReadOnlySpan(offsetPtr, length)
-            | _ -> failwith "Invalid span state"
+            | _ -> panicwith (ofBytes "Invalid span state"B)
     
     /// <summary>
     /// A fixed-size buffer allocated on the stack.
@@ -254,7 +254,7 @@ module Memory =
         /// <returns>A new span over a portion of the buffer.</returns>
         member this.AsSpan(start: int, length: int) =
             if start < 0 || length < 0 || start + length > this.size then
-                failwith "Invalid span parameters"
+                panicwith (ofBytes "Invalid span parameters"B)
             let offsetPtr = addToPtr this.ptr start
             Span(offsetPtr, length)
             
@@ -275,7 +275,7 @@ module Memory =
         /// <returns>A new read-only span over a portion of the buffer.</returns>
         member this.AsReadOnlySpan(start: int, length: int) =
             if start < 0 || length < 0 || start + length > this.size then
-                failwith "Invalid span parameters"
+                panicwith (ofBytes "Invalid span parameters"B)
             let offsetPtr = addToPtr this.ptr start
             ReadOnlySpan(offsetPtr, length)
     

@@ -1,6 +1,8 @@
 #nowarn "9"
 namespace Alloy
 
+open FSharp.NativeInterop
+
 /// <summary>
 /// Pure F# UUID implementation (RFC 4122) with no System.Guid dependencies
 /// </summary>
@@ -39,7 +41,7 @@ module Uuid =
         | c when c >= '0' && c <= '9' -> int c - int '0'
         | c when c >= 'a' && c <= 'f' -> int c - int 'a' + 10
         | c when c >= 'A' && c <= 'F' -> int c - int 'A' + 10
-        | _ -> failwith $"Invalid hex character: {c}"
+        | _ -> panicwith (ofBytes "Invalid hex character"B)
     
     /// <summary>
     /// The nil UUID (all zeros)
@@ -72,129 +74,138 @@ module Uuid =
     /// Generates a version 5 UUID based on a namespace and name
     /// </summary>
     /// <param name="namespace">The namespace UUID</param>
-    /// <param name="name">The name string</param>
+    /// <param name="name">The name NativeStr</param>
     /// <returns>A version 5 UUID</returns>
-    let newUuidV5 (``namespace``: Uuid) (name: string) Uuid =
-        // Convert name to bytes using UTF-8 encoding
-        let nameBytes = 
-            Array.init name.Length (fun i -> 
-                let c = int name[i]
-                if c < 128 then byte c else byte '?')
-        
-        // Combine namespace and name
-        let data = Array.append ``namespace``.Data nameBytes
-        
+    let newUuidV5 (``namespace``: Uuid) (name: NativeStr) : Uuid =
+        // Combine namespace (16 bytes) and name bytes
+        let totalLen = 16 + name.Length
+        let data = Array.zeroCreate totalLen
+
+        // Copy namespace bytes
+        for i = 0 to 15 do
+            data.[i] <- ``namespace``.Data.[i]
+
+        // Copy name bytes directly (NativeStr is already UTF-8)
+        for i = 0 to name.Length - 1 do
+            data.[16 + i] <- NativePtr.get name.Pointer i
+
         // Normally we would compute SHA-1 hash here
         // For this example, we'll just do a simple hash
         let hash = Array.zeroCreate 16
         for i = 0 to 15 do
-            hash[i] <- 
+            hash.[i] <-
                 if i < data.Length then
-                    data[i]
+                    data.[i]
                 else
                     byte (i * 3 % 256)
-        
+
         // Set version to 5
-        hash[6] <- hash[6] &&& 0x0Fuy ||| 0x50uy
-        
+        hash.[6] <- hash.[6] &&& 0x0Fuy ||| 0x50uy
+
         // Set variant to RFC 4122
-        hash[8] <- hash[8] &&& 0x3Fuy ||| 0x80uy
-        
+        hash.[8] <- hash.[8] &&& 0x3Fuy ||| 0x80uy
+
         { Data = hash }
     
     /// <summary>
-    /// Converts UUID to string representation
+    /// Converts UUID to NativeStr representation using a caller-provided buffer.
+    /// Buffer must be at least 36 bytes.
     /// </summary>
+    /// <param name="buffer">Destination buffer (at least 36 bytes)</param>
     /// <param name="uuid">The UUID to convert</param>
-    /// <returns>A string representation in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</returns>
-    let toString (uuid: Uuid): string =
-        let hex = Array.collect byteToHex uuid.Data
-        let result = Array.zeroCreate 36
-        
-        // Format: 8-4-4-4-12
-        let mutable pos = 0
-        
-        // First group (8 chars)
-        for i = 0 to 7 do
-            result[i] <- hex[pos]
-            pos <- pos + 1
-            
-        // Add hyphen
-        result[8] <- '-'
-        
-        // Second group (4 chars)
-        for i = 9 to 12 do
-            result[i] <- hex[pos]
-            pos <- pos + 1
-            
-        // Add hyphen
-        result[13] <- '-'
-        
-        // Third group (4 chars)
-        for i = 14 to 17 do
-            result[i] <- hex[pos]
-            pos <- pos + 1
-            
-        // Add hyphen
-        result[18] <- '-'
-        
-        // Fourth group (4 chars)
-        for i = 19 to 22 do
-            result[i] <- hex[pos]
-            pos <- pos + 1
-            
-        // Add hyphen
-        result[23] <- '-'
-        
-        // Fifth group (12 chars)
-        for i = 24 to 35 do
-            result[i] <- hex[pos]
-            pos <- pos + 1
-        
-        new string(result)
+    /// <returns>A NativeStr in the format "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"</returns>
+    let inline toStringTo (buffer: nativeptr<byte>) (uuid: Uuid) : NativeStr =
+        let inline writeHexByte (pos: int) (b: byte) =
+            let hi = int (b >>> 4) &&& 0xF
+            let lo = int b &&& 0xF
+            NativePtr.set buffer pos (if hi < 10 then byte (hi + 48) else byte (hi + 87))
+            NativePtr.set buffer (pos + 1) (if lo < 10 then byte (lo + 48) else byte (lo + 87))
+
+        // Format: 8-4-4-4-12 (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+        // Bytes 0-3 -> positions 0-7
+        writeHexByte 0 uuid.Data.[0]
+        writeHexByte 2 uuid.Data.[1]
+        writeHexByte 4 uuid.Data.[2]
+        writeHexByte 6 uuid.Data.[3]
+
+        NativePtr.set buffer 8 45uy // '-'
+
+        // Bytes 4-5 -> positions 9-12
+        writeHexByte 9 uuid.Data.[4]
+        writeHexByte 11 uuid.Data.[5]
+
+        NativePtr.set buffer 13 45uy // '-'
+
+        // Bytes 6-7 -> positions 14-17
+        writeHexByte 14 uuid.Data.[6]
+        writeHexByte 16 uuid.Data.[7]
+
+        NativePtr.set buffer 18 45uy // '-'
+
+        // Bytes 8-9 -> positions 19-22
+        writeHexByte 19 uuid.Data.[8]
+        writeHexByte 21 uuid.Data.[9]
+
+        NativePtr.set buffer 23 45uy // '-'
+
+        // Bytes 10-15 -> positions 24-35
+        writeHexByte 24 uuid.Data.[10]
+        writeHexByte 26 uuid.Data.[11]
+        writeHexByte 28 uuid.Data.[12]
+        writeHexByte 30 uuid.Data.[13]
+        writeHexByte 32 uuid.Data.[14]
+        writeHexByte 34 uuid.Data.[15]
+
+        NativeStr(buffer, 36)
     
     /// <summary>
-    /// Parse a UUID from string
+    /// Parse a UUID from a NativeStr
     /// </summary>
-    /// <param name="s">The string to parse</param>
+    /// <param name="s">The string to parse (must be 36 bytes)</param>
     /// <returns>The parsed UUID</returns>
-    /// <exception cref="System.Exception">Thrown when the string is not a valid UUID</exception>
-    let fromString (s: string): Uuid =
+    let fromString (s: NativeStr) : Uuid =
         if s.Length <> 36 then
-            failwith $"Invalid UUID format: expected 36 characters, got {s.Length}"
-        
+            panicwith (ofBytes "Invalid UUID format: expected 36 characters"B)
+
         // Check hyphens are in the right places
-        if s[8] <> '-' || s[13] <> '-' || s[18] <> '-' || s[23] <> '-' then
-            failwith "Invalid UUID format: incorrect hyphen placement"
-        
+        if s.[8] <> '-' || s.[13] <> '-' || s.[18] <> '-' || s.[23] <> '-' then
+            panicwith (ofBytes "Invalid UUID format: incorrect hyphen placement"B)
+
         let bytes = Array.zeroCreate 16
         let mutable byteIndex = 0
-        
+
+        // Helper to convert hex char to int
+        let inline hexToIntLocal (c: char) : int =
+            if c >= '0' && c <= '9' then int c - int '0'
+            elif c >= 'a' && c <= 'f' then int c - int 'a' + 10
+            elif c >= 'A' && c <= 'F' then int c - int 'A' + 10
+            else 0 // Invalid, but we validated format above
+
         // Process the five groups
-        let processGroup (startIndex: int) (length: int): unit =
+        let inline processGroup (startIndex: int) (length: int) : unit =
             let mutable i = startIndex
             while i < startIndex + length do
-                let hi = hexToInt s[i]
-                let lo = hexToInt s[i + 1]
-                bytes[byteIndex] <- byte ((hi <<< 4) ||| lo)
+                let hi = hexToIntLocal s.[i]
+                let lo = hexToIntLocal s.[i + 1]
+                bytes.[byteIndex] <- byte ((hi <<< 4) ||| lo)
                 byteIndex <- byteIndex + 1
                 i <- i + 2
-        
+
         // Group 1: 8 chars (4 bytes)
         processGroup 0 8
-        
+
         // Group 2: 4 chars (2 bytes)
         processGroup 9 4
-        
+
         // Group 3: 4 chars (2 bytes)
         processGroup 14 4
-        
+
         // Group 4: 4 chars (2 bytes)
         processGroup 19 4
-        
+
         // Group 5: 12 chars (6 bytes)
         processGroup 24 12
-        
+
         { Data = bytes }
     
     /// <summary>
@@ -230,7 +241,7 @@ module Uuid =
     /// <exception cref="System.Exception">Thrown when the byte array is not 16 bytes</exception>
     let fromByteArray (bytes: byte[]): Uuid =
         if bytes.Length <> 16 then
-            failwith $"UUID byte array must be exactly 16 bytes, got {bytes.Length}"
+            panicwith (ofBytes "UUID byte array must be exactly 16 bytes"B)
             
         { Data = Array.copy bytes }
     

@@ -24,7 +24,7 @@ type Span<'T> =
     /// <param name="length">The number of elements to include in the span.</param>
     new (array: 'T[], start: int, length: int) = 
         if start < 0 || length < 0 || start + length > array.Length then
-            failwith "Invalid span parameters"
+            panicwith (ofBytes "Invalid span parameters"B)
         { _array = array; _start = start; _length = length }
     
     /// <summary>Gets the element at the specified index.</summary>
@@ -33,11 +33,11 @@ type Span<'T> =
     member this.Item 
         with get(index: int) : 'T = 
             if index < 0 || index >= this._length then
-                failwith "Index out of range"
+                panicwith (ofBytes "Index out of range"B)
             this._array.[this._start + index]
         and set(index: int) (value: 'T) =
             if index < 0 || index >= this._length then
-                failwith "Index out of range"
+                panicwith (ofBytes "Index out of range"B)
             this._array.[this._start + index] <- value
     
     /// <summary>Gets the length of the span.</summary>
@@ -74,7 +74,7 @@ type ReadOnlySpan<'T> =
     /// <param name="length">The number of elements to include in the read-only span.</param>
     new (array: 'T[], start: int, length: int) = 
         if start < 0 || length < 0 || start + length > array.Length then
-            failwith "Invalid span parameters"
+            panicwith (ofBytes "Invalid span parameters"B)
         { _array = array; _start = start; _length = length }
     
     /// <summary>Gets the element at the specified index.</summary>
@@ -83,7 +83,7 @@ type ReadOnlySpan<'T> =
     member this.Item 
         with get(index: int) : 'T = 
             if index < 0 || index >= this._length then
-                failwith "Index out of range"
+                panicwith (ofBytes "Index out of range"B)
             this._array.[this._start + index]
     
     /// <summary>Gets the length of the read-only span.</summary>

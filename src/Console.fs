@@ -3,38 +3,32 @@
 namespace Alloy
 
 open FSharp.NativeInterop
-open Alloy.NativeTypes
 open Alloy.Memory
 open Alloy.Primitives
 
 /// Low-level console operations using native types only.
 /// No BCL types (System.String, System.Console, etc.) are used.
 ///
-/// All I/O operations decompose to calls to Primitives.writeBytes/readBytes,
-/// which are extern declarations. Alex provides platform-specific implementations.
+/// Core I/O primitives are in Primitives.fs - this module builds on them.
+/// Alex provides platform-specific implementations.
 module Console =
 
-    /// Standard file descriptors
-    [<Literal>]
-    let STDIN_FILENO = 0
-
-    [<Literal>]
-    let STDOUT_FILENO = 1
-
-    [<Literal>]
-    let STDERR_FILENO = 2
+    /// Standard file descriptors (re-exported from Primitives for convenience)
+    let STDIN_FILENO = STDIN
+    let STDOUT_FILENO = STDOUT
+    let STDERR_FILENO = STDERR
 
     // ═══════════════════════════════════════════════════════════════════
-    // I/O primitives - delegate to Alloy.Primitives extern declarations
+    // I/O primitives - delegate to Primitives.Bindings (BCL-free)
     // ═══════════════════════════════════════════════════════════════════
 
-    /// Native write operation - delegates to Primitives.writeBytes extern
+    /// Native write operation - delegates to Primitives.Bindings.writeBytes
     let inline writeBytes (fd: int) (buffer: nativeptr<byte>) (count: int) : int =
-        Primitives.writeBytes(fd, NativePtr.toNativeInt buffer, count)
+        Bindings.writeBytes fd (NativePtr.toNativeInt buffer) count
 
-    /// Native read operation - delegates to Primitives.readBytes extern
+    /// Native read operation - delegates to Primitives.Bindings.readBytes
     let inline readBytes (fd: int) (buffer: nativeptr<byte>) (maxCount: int) : int =
-        Primitives.readBytes(fd, NativePtr.toNativeInt buffer, maxCount)
+        Bindings.readBytes fd (NativePtr.toNativeInt buffer) maxCount
 
     // ═══════════════════════════════════════════════════════════════════
     // Low-level output functions
@@ -42,22 +36,22 @@ module Console =
 
     /// Writes a NativeStr to the specified file descriptor.
     let inline writeStr (fd: int) (str: NativeStr) : int =
-        writeBytes fd str.Pointer str.Length
+        Primitives.writeStr fd str
 
     /// Writes a NativeStr to stdout.
     let inline writeStrOut (str: NativeStr) : int =
-        writeBytes 1 str.Pointer str.Length
+        Primitives.writeStr STDOUT str
 
     /// Writes a NativeStr to stderr.
     let inline writeStrErr (str: NativeStr) : int =
-        writeBytes 2 str.Pointer str.Length
+        Primitives.writeStr STDERR str
 
     /// Writes a null-terminated byte sequence to stdout.
     let inline writeNullTerminated (ptr: nativeptr<byte>) : int =
         let mutable len = 0
         while NativePtr.get ptr len <> 0uy do
             len <- len + 1
-        writeBytes 1 ptr len
+        writeBytes STDOUT ptr len
 
     /// Writes raw bytes to the specified file descriptor.
     let inline writeRaw (fd: int) (ptr: nativeptr<byte>) (len: int) : int =
@@ -75,7 +69,7 @@ module Console =
 
     /// Writes a newline to stdout.
     let inline newLine () : int =
-        writeNewLine 1
+        writeNewLine STDOUT
 
     // ═══════════════════════════════════════════════════════════════════
     // Low-level input functions
@@ -226,25 +220,12 @@ module Console =
     let inline private writeNativeStr (s: NativeStr) : unit =
         write s
 
-    /// Internal: Write an F# string to stdout (UTF-8 encoded)
-    /// Uses stack-allocated buffer with native UTF-8 encoding - NO BCL DEPENDENCY
-    /// This is the freestanding-compatible path.
-    let inline private writeSystemString (s: string) : unit =
-        if not (isNull s) && s.Length > 0 then
-            // Stack allocate buffer for UTF-8 encoding
-            // Max 4 bytes per char for UTF-8, but most strings are ASCII
-            let maxBytes = s.Length * 4
-            let buffer = NativePtr.stackalloc<byte> maxBytes
-            let ns = Utf8.getBytesTo buffer maxBytes s
-            if ns.Length > 0 then
-                writeBytes 1 ns.Pointer ns.Length |> ignore
-
     /// Type that enables polymorphic Write operations via SRTP
+    /// In native compilation, string = NativeStr, so we only need one overload.
     type WritableString =
         | WritableString
 
         static member inline ($) (WritableString, s: NativeStr) = writeNativeStr s
-        static member inline ($) (WritableString, s: string) = writeSystemString s
 
     /// Writes to stdout (no newline). Accepts both NativeStr and string.
     let inline Write s = WritableString $ s
@@ -252,15 +233,6 @@ module Console =
     /// Writes to stdout followed by a newline. Accepts both NativeStr and string.
     let inline WriteLine s =
         WritableString $ s
-        newLine () |> ignore
-
-    /// Simple non-polymorphic write for F# strings
-    /// Use this for basic string output without SRTP overhead
-    let WriteStr (s: string) : unit = writeSystemString s
-
-    /// Simple non-polymorphic write for F# strings followed by newline
-    let WriteStrLn (s: string) : unit =
-        writeSystemString s
         newLine () |> ignore
 
     /// Writes just a newline to stdout.

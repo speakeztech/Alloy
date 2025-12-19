@@ -15,6 +15,9 @@ sources = [
     "NativeTypes/NativeArray.fs",
     "NativeTypes/NativeString.fs",
 
+    # Primitives (provides native panicwith - must come after NativeString)
+    "Primitives.fs",
+
     # Fsil - zero-cost SRTP operations (foundation)
     "Fsil/Core.fs",
 
@@ -63,10 +66,10 @@ sources = [
     # Operators (wraps Numerics with standard operator symbols)
     "Operators.fs",
 
-    # Primitives (extern declarations - must come before Console/Time)
-    "Primitives.fs",
+    # Platform bindings (BCL-free - must come before Console/Time)
+    "Platform.fs",
 
-    # I/O modules (depend on Primitives and Utf8)
+    # I/O modules (depend on Platform.Bindings and Utf8)
     "Console.fs",
     "Time.fs"
 ]

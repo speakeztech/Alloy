@@ -1,268 +1,255 @@
 # Alloy
 
-A zero-cost abstractions library for F# extending fsil with additional functional programming capabilities and essential system primitives - all without .NET BCL dependencies.
+The native F# standard library for the Fidelity Framework.
+
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-orange.svg)](Commercial.md)
+
+<p align="center">
+🚧 <strong>Under Active Development</strong> 🚧<br>
+<em>This project is in early development and not intended for production use.</em>
+</p>
 
 ## Overview
 
-Alloy builds upon the foundation laid by [fsil](https://github.com/ieviev/fsil), providing additional zero-cost abstractions for numeric operations, collections, memory management, time operations, and string manipulation. Like fsil, Alloy leverages F#'s statically resolved type parameters (SRTPs) to ensure all abstractions are resolved at compile time with no runtime overhead.
+Alloy is the standard library for F# programs targeting native compilation through Firefly. Unlike traditional .NET libraries that depend on the Base Class Library (BCL) and runtime, Alloy provides **source-level implementations** that compile directly to native code without runtime dependencies.
 
-## Core Features
+### Key Characteristics
 
-- **Zero-cost abstractions**: All operations are inlined and compile to the same code as direct function calls
-- **No runtime overhead**: Compile-time resolution means you get high-level abstractions with low-level performance
-- **Type-safe operations**: Fully leverages F#'s type system for safety and correctness
-- **Platform-native implementations**: Direct OS API calls for time and memory operations
-- **Struct-based types**: ValueOption and other types avoid heap allocations
+- **BCL-Free**: No System.* dependencies - compiles to standalone native binaries
+- **Source Compilation**: Consumed as F# source files, not as a compiled DLL
+- **BCL-Sympathetic API**: Familiar naming conventions for .NET developers
+- **Native Types**: UTF-8 strings, value options, fixed-width integers
+- **Platform Bindings**: Declarative surface for platform-specific operations
 
-## From fsil to Alloy
+## The Fidelity Framework
 
-Alloy extends fsil's core functionality with additional operations:
+Alloy is part of the **Fidelity** native F# compilation ecosystem:
 
-| fsil provides | Alloy adds |
-|---------------|------------|
-| `map`, `mapi` | `add`, `subtract`, `multiply`, `divide` |
-| `iter`, `iteri` | `min`, `max`, `sum`, `average`, `product` |
-| `fold` | `filter`, `choose`, `find`, `tryFind` |
-| `zero`, `one` | `power`, `abs`, `sign`, `ceiling`, `floor`, `round` |
-| Basic printing | String manipulation functions |
-| | Memory primitives with region safety |
-| | Time operations without System.DateTime |
-| | Binary conversions for serialization |
-| | UTF-8 encoding/decoding |
-| | UUID v4/v5 generation |
-| | Result type for error handling |
-| | Span operations |
+| Project | Role |
+|---------|------|
+| **[Firefly](https://github.com/speakez-llc/firefly)** | AOT compiler: F# → PSG → MLIR → Native binary |
+| **Alloy** | Native standard library with platform bindings |
+| **[BAREWire](https://github.com/speakez-llc/barewire)** | Binary encoding, memory mapping, zero-copy IPC |
+| **[Farscape](https://github.com/speakez-llc/farscape)** | C/C++ header parsing for native library bindings |
+| **[XParsec](https://github.com/speakez-llc/xparsec)** | Parser combinators powering PSG traversal and header parsing |
 
-## Installation
+The name "Fidelity" reflects the framework's core mission: **preserving type and memory safety** from source code through compilation to native execution.
 
-```bash
-dotnet add package Alloy
-```
+## How Alloy Works
 
-## Basic Usage
-
-### Numeric Operations
+When you compile an F# program with Firefly:
 
 ```fsharp
 open Alloy
 
-// Basic arithmetic - works with any numeric type
-let result = add 10 5           // 15
-let product = multiply 4 7      // 28
-let powered = power 2 8         // 256
-
-// Collection operations
-let numbers = [|1; 2; 3; 4; 5|]
-let total = sum numbers         // 15
-let avg = average numbers       // 3
-let prod = product numbers      // 120
-
-// Works with units of measure
-[<Measure>] type meter
-let distance = 100<meter>
-let doubled = multiply distance 2  // 200<meter>
+let main () =
+    Console.WriteLine "Hello, World!"
 ```
 
-### ValueOption - Stack-Allocated Options
+Firefly compiles your code **together with Alloy's source files**. The result is a standalone native binary with no .NET runtime dependency.
+
+### BCL Sympathy, Not BCL Compatibility
+
+Alloy provides familiar APIs but with native semantics:
+
+| BCL Pattern | Alloy Equivalent | Difference |
+|-------------|------------------|------------|
+| `System.String` (UTF-16) | `NativeStr` (UTF-8) | Memory-efficient, C-compatible |
+| `option<'T>` (nullable) | `voption<'T>` (struct) | Stack-allocated, null-free |
+| `System.DateTime` | Native ticks | No timezone/calendar complexity |
+| Exceptions | `Result<'T, 'E>` | Explicit error handling |
+| `null` | Not permitted | Compiler-enforced null safety |
+
+## Core Modules
+
+### Native Types
 
 ```fsharp
-// Zero heap allocations - lives on the stack
-let maybeValue = ValueOption.Some 42
-let empty = ValueOption<string>.None
+open Alloy
 
-// Pattern matching
-match maybeValue with
-| Some v -> printfn "Value: %d" v
-| None -> printfn "No value"
+// UTF-8 strings - memory efficient, C-compatible
+let greeting: NativeStr = "Hello, World!"
 
-// Functional operations
-let result = 
-    maybeValue
-    |> ValueOption.map (fun x -> x * 2)
-    |> ValueOption.defaultValue 0
+// Value options - stack allocated, no null
+let maybeValue: voption<int> = ValueSome 42
+
+// Fixed-width integers with explicit sizes
+let byte: u8 = 255uy
+let word: i32 = 42
+let quad: i64 = 1234567890L
+```
+
+### Console I/O
+
+```fsharp
+open Alloy
+
+// Output
+Console.Write "Enter name: "
+Console.WriteLine "Hello!"
+
+// Input with stack buffer
+let name = Console.ReadLine ()
+Console.WriteLine $"Hello, {name}!"
 ```
 
 ### Memory Operations
 
-Type-safe memory operations with region tracking:
-
 ```fsharp
-// Create memory regions
-let data = Array.zeroCreate<byte> 1024
-let memory = Memory.fromArray<int, region> data
+open Alloy
 
-// Safe memory operations
-Memory.writeByte memory 0<offset> 42uy
-let value = Memory.readByte memory 0<offset>
+// Stack-allocated buffer
+use buffer = Memory.stackAlloc<byte> 256
 
-// Memory slicing
-let slice = Memory.slice memory 10<offset> 100<bytes>
+// Memory operations
+Memory.copy src dst length
+Memory.zero buffer
 ```
 
-### Time Operations
-
-Platform-native time without System.DateTime:
+### Result-Based Error Handling
 
 ```fsharp
-open Alloy.Time
+open Alloy
 
-// High-resolution timing
-let start = Time.highResolutionTicks()
-// ... perform work ...
-let elapsed = Time.elapsedTime start (Time.highResolutionTicks())
+let divide x y =
+    if y = 0 then Error "Division by zero"
+    else Ok (x / y)
 
-// Basic time operations
-let now = Time.now()
-let unix = Time.currentUnixTimestamp()
-
-// Create specific dates
-let date = Time.createDateTime 2025 5 24 14 30 0 0
+let result =
+    divide 10 2
+    |> Result.map (fun x -> x * 2)
+    |> Result.defaultValue 0
 ```
 
-### String Operations
+## Platform Bindings
 
-Essential string manipulation without System.String methods:
+Alloy declares platform operations that Firefly's Alex component implements for each target:
 
 ```fsharp
-// Core string operations
-let text = "  Hello, World!  "
-let trimmed = String.trim text
-let parts = String.split ',' "a,b,c"
-let joined = String.join ", " [|"x"; "y"; "z"|]
-
-// Efficient concatenation
-let message = String.concat3 "Hello" " " "World"
-
-// String inspection
-let hasPrefix = String.startsWith "Hello" text
-let contains = String.contains "World" text
+// In Alloy - declaration only
+module Platform.Bindings =
+    let writeBytes fd buffer count : int = Unchecked.defaultof<int>
+    let readBytes fd buffer count : int = Unchecked.defaultof<int>
+    let getCurrentTicks () : int64 = Unchecked.defaultof<int64>
 ```
 
-### Binary Operations
+Alex recognizes calls to `Platform.Bindings.*` and generates platform-appropriate code:
+- **Linux x86_64**: `syscall` instructions
+- **Windows x86_64**: Win32 API calls
+- **ARM Cortex-M**: Memory-mapped peripheral access
+- **WebAssembly**: WASI imports
 
-Low-level binary conversions:
+**This separation keeps Alloy platform-agnostic** while enabling efficient native code generation.
 
-```fsharp
-// Bit-pattern preserving conversions
-let bits = Binary.singleToInt32Bits 3.14f
-let restored = Binary.int32BitsToSingle bits
+## Project Configuration
 
-// Byte conversions
-let bytes = Binary.getInt32Bytes 42
-let value = Binary.toInt32 bytes 0
+Firefly projects reference Alloy via `.fidproj` files:
+
+```toml
+[package]
+name = "my_app"
+
+[dependencies]
+alloy = { path = "/path/to/Alloy/src" }
+
+[build]
+sources = ["Main.fs"]
+output = "my_app"
+output_kind = "console"  # or "freestanding"
 ```
-
-### UTF-8 Encoding
-
-Pure F# UTF-8 implementation:
-
-```fsharp
-// Encode/decode without System.Text.Encoding
-let utf8 = Utf8.getBytes "Hello, 世界!"
-let text = Utf8.getString utf8
-```
-
-### UUID Generation
-
-RFC 4122 compliant UUID implementation:
-
-```fsharp
-open Alloy.Uuid
-
-// Generate UUIDs
-let id = Uuid.newUuid()              // v4 random
-let strId = Uuid.toString id         // "550e8400-e29b-41d4-a716-446655440000"
-let parsed = Uuid.fromString strId
-```
-
-## Platform Support
-
-Alloy provides platform-specific implementations for:
-- **Windows**: kernel32.dll APIs
-- **Linux**: libc APIs
-- **macOS**: libSystem APIs
-- **Portable**: Pure F# fallbacks
-
-Platform selection is automatic and transparent.
 
 ## Design Principles
 
-### Zero-Cost Abstractions
+### 1. Source-Level Composition
 
-All Alloy operations compile to the same machine code as hand-written implementations:
+Alloy is not a compiled DLL. Your code and Alloy's code are compiled together as a single unit, enabling:
+- Whole-program optimization
+- Dead code elimination
+- Cross-module inlining
 
-```fsharp
-// This Alloy code:
-let result = add x y
+### 2. No Hidden Runtime
 
-// Compiles to the same assembly as:
-let result = x + y
-```
+Every operation compiles to explicit machine code. There is no:
+- Garbage collector
+- JIT compiler
+- Runtime type system
+- Hidden allocations
 
-### Type Safety with Units of Measure
+### 3. Explicit Resource Management
 
-Alloy preserves F#'s units of measure throughout operations:
-
-```fsharp
-[<Measure>] type second
-[<Measure>] type meter
-
-let time = 10<second>
-let distance = 50<meter>
-let speed = divide distance time  // 5<meter/second>
-```
-
-### Memory Safety
-
-Region-based types prevent memory errors at compile time:
+Resources are managed through RAII patterns:
 
 ```fsharp
-[<Measure>] type heap
-[<Measure>] type stack
-
-// Types ensure you can't mix memory regions
-let heapMem = Memory.fromArray<int, heap> heapData
-let stackMem = Memory.fromArray<int, stack> stackData
-// Memory.copy heapMem stackMem 10<bytes>  // Compile error!
+// File handle cleaned up at scope exit
+use file = File.open "data.txt"
+let content = File.readAll file
+// file automatically closed here
 ```
 
-## Performance
+### 4. Zero-Cost Abstractions
 
-- **Inlined operations**: Everything is inlined by the F# compiler
-- **Stack allocation**: ValueOption and similar types avoid heap allocation
-- **Direct platform calls**: No abstraction layers for system operations
-- **Cache-friendly**: Struct types improve memory locality
-
-## Extending Alloy
-
-Add Alloy operations to your own types:
+Alloy leverages F#'s statically resolved type parameters (SRTPs) for abstractions that compile away:
 
 ```fsharp
-type Vector2D = { X: float; Y: float }
+// Generic numeric operations - no boxing, no virtual dispatch
+let inline square x = x * x
 
-// Implement required static members
-type Vector2D with
-    static member Add(a, b) = { X = a.X + b.X; Y = a.Y + b.Y }
-    static member Zero = { X = 0.0; Y = 0.0 }
-
-// Now works with Alloy operations
-let v1 = { X = 3.0; Y = 4.0 }
-let v2 = { X = 1.0; Y = 2.0 }
-let v3 = add v1 v2  // { X = 4.0; Y = 6.0 }
+let intResult = square 5      // Compiles to: imul
+let floatResult = square 5.0  // Compiles to: mulsd
 ```
 
-## API Reference TBD
+## Relationship to fsil
 
+Alloy builds on patterns established by [fsil](https://github.com/ieviev/fsil), particularly:
+- Inline-by-default iteration
+- SRTP-based polymorphism
+- Collection protocols without interfaces
 
+As the Fidelity ecosystem matures, these patterns are being absorbed into FNCS (F# Native Compiler Services), making them intrinsic to the language for native targets.
 
-- **Core**: Extended operations from fsil
-- **Numerics**: Arithmetic and mathematical operations
-- **String**: String manipulation functions
-- **ValueOption**: Stack-allocated option type
-- **Memory**: Type-safe memory operations
-- **Time**: Platform-native time operations
-- **Binary**: Binary conversion utilities
-- **Utf8**: UTF-8 encoding/decoding
-- **Uuid**: UUID generation and parsing
-- **Result**: Functional error handling
-- **Span**: Contiguous memory views
+## Development Status
+
+Alloy is under active development as part of the Fidelity Framework. Current focus areas:
+
+- Core type implementations (NativeStr, voption, Result)
+- Console I/O for validation samples
+- Memory primitives for stack/arena allocation
+- Platform binding surface for Alex integration
+
+## Building and Testing
+
+Alloy is tested through Firefly's sample programs:
+
+```bash
+# From Firefly repository
+cd samples/console/FidelityHelloWorld/01_HelloWorldDirect
+
+# Compile (includes Alloy sources)
+firefly compile HelloWorld.fidproj
+
+# Run native binary
+./HelloWorld
+```
+
+## License
+
+Alloy is dual-licensed under both the Apache License 2.0 and a Commercial License.
+
+### Open Source License
+
+For open source projects, academic use, non-commercial applications, and internal tools, use Alloy under the **Apache License 2.0**.
+
+### Commercial License
+
+A Commercial License is required for incorporating Alloy into commercial products or services. See [Commercial.md](Commercial.md) for details.
+
+### Patent Notice
+
+Alloy is part of the Fidelity Framework, which includes technology covered by U.S. Patent Application No. 63/786,247 "System and Method for Zero-Copy Inter-Process Communication Using BARE Protocol". See [PATENTS.md](PATENTS.md) for licensing details.
+
+## Acknowledgments
+
+- **[fsil](https://github.com/ieviev/fsil)**: Foundational patterns for zero-cost F# abstractions
+- **Don Syme and F# Contributors**: For the elegant language that makes this possible
+- **Firefly Team**: For the native compilation infrastructure

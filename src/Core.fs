@@ -4,11 +4,11 @@ namespace Alloy
 
 [<AutoOpen>]
 module Core =
-    
+
     // ===================================
     // Zero-allocation option type using F# voption
     // ===================================
-    
+
     /// <summary>
     /// Zero-allocation option type that shadows F#'s option with voption
     /// </summary>
@@ -114,10 +114,11 @@ module Core =
         | ValueNone -> f ()
 
     /// <summary>
-    /// Converts a value to string using static resolution.
+    /// Converts a value to NativeStr using static resolution.
+    /// Types must implement ToNativeString for native compilation.
     /// </summary>
-    let inline string< ^T when ^T : (member ToString : unit -> string)> (x: ^T) =
-        (^T : (member ToString : unit -> string) x)
+    let inline string< ^T when ^T : (member ToNativeString : unit -> NativeStr)> (x: ^T) : NativeStr =
+        (^T : (member ToNativeString : unit -> NativeStr) x)
 
     // ===================================
     // Character conversion (no BCL char type)
@@ -172,6 +173,12 @@ module Core =
     /// </summary>
     let ignore<'T> (_: 'T) : unit = ()
 
+    /// <summary>
+    /// Boolean negation. Native implementation without BCL dependency.
+    /// </summary>
+    let inline not (x: bool) : bool =
+        if x then false else true
+
     // ===================================
     // Option functions
     // ===================================
@@ -198,7 +205,7 @@ module Core =
     let inline value (x: 'T option) =
         match x with
         | ValueSome v -> v
-        | ValueNone -> failwith "Option was None"
+        | ValueNone -> panicwith (ofBytes "Option was None"B)
 
     /// <summary>
     /// Creates a None option.
@@ -278,7 +285,7 @@ module Core =
             i <- i + 1
         
         if found then result
-        else failwith "No element found matching the predicate"
+        else panicwith (ofBytes "No element found matching the predicate"B)
 
     /// <summary>
     /// Try to find an element in an array that matches a predicate.
@@ -295,16 +302,6 @@ module Core =
         
         if found then ValueSome result
         else ValueNone
-
-    /// <summary>
-    /// Generic equality check.
-    /// </summary>
-    let inline equals (a: 'T) (b: 'T) : bool = a = b
-
-    /// <summary>
-    /// Generic inequality check.
-    /// </summary>
-    let inline not_equals (a: 'T) (b: 'T) : bool = a <> b
 
     // ===================================
     // Result type and operations
@@ -421,14 +418,14 @@ module Core =
         let inline get (result: Result<'T, 'Error>) =
             match result with
             | Ok v -> v
-            | Error _ -> failwith "Result was Error"
+            | Error _ -> panicwith (ofBytes "Result was Error"B)
 
         /// <summary>
         /// Gets the Error value from a result, throws if Ok.
         /// </summary>
         let inline getError (result: Result<'T, 'Error>) =
             match result with
-            | Ok _ -> failwith "Result was Ok"
+            | Ok _ -> panicwith (ofBytes "Result was Ok"B)
             | Error e -> e
 
         /// <summary>
@@ -513,7 +510,7 @@ module Core =
         /// Returns the first Ok result from a list of Results.
         /// </summary>
         let inline choice (results: Result<'T, 'Error> list) =
-            List.fold orElse (Error (failwith "Empty choice list")) results
+            List.fold orElse (Error (panicwith (ofBytes "Empty choice list"B))) results
 
         /// <summary>
         /// Iterates over an Ok value, does nothing for Error.

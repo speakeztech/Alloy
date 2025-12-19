@@ -1,5 +1,5 @@
 #nowarn "9"
-namespace Alloy.NativeTypes
+namespace Alloy
 
 open FSharp.NativeInterop
 

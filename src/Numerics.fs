@@ -391,15 +391,12 @@ module Numerics =
         static member inline Add(a: int16, b: int16) = a + b
         static member inline Add(a: uint16, b: uint16) = a + b
         
-        static member inline Add(a: string, b: string) = 
-            let aChars = if isNull a then [||] else Array.init a.Length (fun i -> a.[i])
-            let bChars = if isNull b then [||] else Array.init b.Length (fun i -> b.[i])
-            let result = Array.zeroCreate (aChars.Length + bChars.Length)
-            for i = 0 to aChars.Length - 1 do
-                result.[i] <- aChars.[i]
-            for i = 0 to bChars.Length - 1 do
-                result.[i + aChars.Length] <- bChars.[i]
-            new string(result)
+        // String concatenation - uses native NativeStr with stack buffer
+        // In native compilation, string = NativeStr
+        static member inline Add(a: NativeStr, b: NativeStr) : NativeStr =
+            let totalLen = a.Length + b.Length
+            let buffer = NativePtr.stackalloc<byte> totalLen
+            NativeString.concat2 buffer a b
             
         // Subtract implementations
         static member inline Subtract(a: int, b: int) = a - b
@@ -484,7 +481,87 @@ module Numerics =
         static member inline Round(a: float) = NativeMath.round a
         static member inline Round(a: decimal) = NativeMath.roundDecimal a
         static member inline Round(a: float32) = NativeMath.roundf a
-    
+
+        // LessThan implementations
+        static member inline LessThan(a: int, b: int) = a < b
+        static member inline LessThan(a: float, b: float) = a < b
+        static member inline LessThan(a: int64, b: int64) = a < b
+        static member inline LessThan(a: uint64, b: uint64) = a < b
+        static member inline LessThan(a: float32, b: float32) = a < b
+        static member inline LessThan(a: decimal, b: decimal) = a < b
+        static member inline LessThan(a: byte, b: byte) = a < b
+        static member inline LessThan(a: uint32, b: uint32) = a < b
+        static member inline LessThan(a: int16, b: int16) = a < b
+        static member inline LessThan(a: uint16, b: uint16) = a < b
+        static member inline LessThan(a: char, b: char) = a < b
+
+        // GreaterThan implementations
+        static member inline GreaterThan(a: int, b: int) = a > b
+        static member inline GreaterThan(a: float, b: float) = a > b
+        static member inline GreaterThan(a: int64, b: int64) = a > b
+        static member inline GreaterThan(a: uint64, b: uint64) = a > b
+        static member inline GreaterThan(a: float32, b: float32) = a > b
+        static member inline GreaterThan(a: decimal, b: decimal) = a > b
+        static member inline GreaterThan(a: byte, b: byte) = a > b
+        static member inline GreaterThan(a: uint32, b: uint32) = a > b
+        static member inline GreaterThan(a: int16, b: int16) = a > b
+        static member inline GreaterThan(a: uint16, b: uint16) = a > b
+        static member inline GreaterThan(a: char, b: char) = a > b
+
+        // LessThanOrEqual implementations
+        static member inline LessThanOrEqual(a: int, b: int) = a <= b
+        static member inline LessThanOrEqual(a: float, b: float) = a <= b
+        static member inline LessThanOrEqual(a: int64, b: int64) = a <= b
+        static member inline LessThanOrEqual(a: uint64, b: uint64) = a <= b
+        static member inline LessThanOrEqual(a: float32, b: float32) = a <= b
+        static member inline LessThanOrEqual(a: decimal, b: decimal) = a <= b
+        static member inline LessThanOrEqual(a: byte, b: byte) = a <= b
+        static member inline LessThanOrEqual(a: uint32, b: uint32) = a <= b
+        static member inline LessThanOrEqual(a: int16, b: int16) = a <= b
+        static member inline LessThanOrEqual(a: uint16, b: uint16) = a <= b
+        static member inline LessThanOrEqual(a: char, b: char) = a <= b
+
+        // GreaterThanOrEqual implementations
+        static member inline GreaterThanOrEqual(a: int, b: int) = a >= b
+        static member inline GreaterThanOrEqual(a: float, b: float) = a >= b
+        static member inline GreaterThanOrEqual(a: int64, b: int64) = a >= b
+        static member inline GreaterThanOrEqual(a: uint64, b: uint64) = a >= b
+        static member inline GreaterThanOrEqual(a: float32, b: float32) = a >= b
+        static member inline GreaterThanOrEqual(a: decimal, b: decimal) = a >= b
+        static member inline GreaterThanOrEqual(a: byte, b: byte) = a >= b
+        static member inline GreaterThanOrEqual(a: uint32, b: uint32) = a >= b
+        static member inline GreaterThanOrEqual(a: int16, b: int16) = a >= b
+        static member inline GreaterThanOrEqual(a: uint16, b: uint16) = a >= b
+        static member inline GreaterThanOrEqual(a: char, b: char) = a >= b
+
+        // Equals implementations
+        static member inline Equals(a: int, b: int) = a = b
+        static member inline Equals(a: float, b: float) = a = b
+        static member inline Equals(a: int64, b: int64) = a = b
+        static member inline Equals(a: uint64, b: uint64) = a = b
+        static member inline Equals(a: float32, b: float32) = a = b
+        static member inline Equals(a: decimal, b: decimal) = a = b
+        static member inline Equals(a: byte, b: byte) = a = b
+        static member inline Equals(a: uint32, b: uint32) = a = b
+        static member inline Equals(a: int16, b: int16) = a = b
+        static member inline Equals(a: uint16, b: uint16) = a = b
+        static member inline Equals(a: char, b: char) = a = b
+        static member inline Equals(a: bool, b: bool) = a = b
+
+        // NotEquals implementations
+        static member inline NotEquals(a: int, b: int) = a <> b
+        static member inline NotEquals(a: float, b: float) = a <> b
+        static member inline NotEquals(a: int64, b: int64) = a <> b
+        static member inline NotEquals(a: uint64, b: uint64) = a <> b
+        static member inline NotEquals(a: float32, b: float32) = a <> b
+        static member inline NotEquals(a: decimal, b: decimal) = a <> b
+        static member inline NotEquals(a: byte, b: byte) = a <> b
+        static member inline NotEquals(a: uint32, b: uint32) = a <> b
+        static member inline NotEquals(a: int16, b: int16) = a <> b
+        static member inline NotEquals(a: uint16, b: uint16) = a <> b
+        static member inline NotEquals(a: char, b: char) = a <> b
+        static member inline NotEquals(a: bool, b: bool) = a <> b
+
     /// <summary>
     /// Provides operations for unit-of-measure types with same measure
     /// </summary>
@@ -1044,42 +1121,55 @@ module Numerics =
             ((^collection or ^t or ArrayOps or MeasureArrayOps) : 
                 (static member Product: ^collection -> ^t) collection)
     
-    // Comparison operations
-    
+    // Comparison operations - using proper SRTP type class pattern
+
     /// <summary>
     /// Entry point for less than operations
     /// </summary>
     [<AbstractClass; Sealed>]
-    type LessThan = 
-        static member inline Invoke(a, b) = a < b
-    
+    type LessThan =
+        static member inline Invoke(a, b) =
+            ((^a or ^b or BasicOps) : (static member LessThan: ^a * ^b -> bool) (a, b))
+
     /// <summary>
     /// Entry point for greater than operations
     /// </summary>
     [<AbstractClass; Sealed>]
-    type GreaterThan = 
-        static member inline Invoke(a, b) = a > b
-    
+    type GreaterThan =
+        static member inline Invoke(a, b) =
+            ((^a or ^b or BasicOps) : (static member GreaterThan: ^a * ^b -> bool) (a, b))
+
     /// <summary>
     /// Entry point for less than or equal operations
     /// </summary>
     [<AbstractClass; Sealed>]
-    type LessThanOrEqual = 
-        static member inline Invoke(a, b) = a <= b
-    
+    type LessThanOrEqual =
+        static member inline Invoke(a, b) =
+            ((^a or ^b or BasicOps) : (static member LessThanOrEqual: ^a * ^b -> bool) (a, b))
+
     /// <summary>
     /// Entry point for greater than or equal operations
     /// </summary>
     [<AbstractClass; Sealed>]
-    type GreaterThanOrEqual = 
-        static member inline Invoke(a, b) = a >= b
-    
+    type GreaterThanOrEqual =
+        static member inline Invoke(a, b) =
+            ((^a or ^b or BasicOps) : (static member GreaterThanOrEqual: ^a * ^b -> bool) (a, b))
+
     /// <summary>
     /// Entry point for equality operations
     /// </summary>
     [<AbstractClass; Sealed>]
-    type Equals = 
-        static member inline Invoke(a, b) = a = b
+    type Equals =
+        static member inline Invoke(a, b) =
+            ((^a or ^b or BasicOps) : (static member Equals: ^a * ^b -> bool) (a, b))
+
+    /// <summary>
+    /// Entry point for not-equals operations
+    /// </summary>
+    [<AbstractClass; Sealed>]
+    type NotEquals =
+        static member inline Invoke(a, b) =
+            ((^a or ^b or BasicOps) : (static member NotEquals: ^a * ^b -> bool) (a, b))
     
     [<Measure>] type internal TestUnit
     
@@ -1299,6 +1389,14 @@ module Numerics =
     /// <param name="b">The second value.</param>
     /// <returns>True if the values are equal, otherwise false.</returns>
     let inline equals a b = Equals.Invoke(a, b)
+
+    /// <summary>
+    /// Compares two values for inequality.
+    /// </summary>
+    /// <param name="a">The first value.</param>
+    /// <param name="b">The second value.</param>
+    /// <returns>True if the values are not equal, otherwise false.</returns>
+    let inline notEquals a b = NotEquals.Invoke(a, b)
 
     /// <summary>
     /// Attaches a unit of measure to an integer value.

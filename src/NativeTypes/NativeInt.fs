@@ -1,5 +1,5 @@
 #nowarn "9"
-namespace Alloy.NativeTypes
+namespace Alloy
 
 /// <summary>
 /// Fixed-width integer types and operations for freestanding compilation.

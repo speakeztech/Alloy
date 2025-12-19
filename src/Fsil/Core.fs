@@ -21,7 +21,7 @@ module Internal =
         static member inline Value(x: Result<'t, _>) : 't =
             match x with
             | Ok v -> v
-            | Error _ -> failwith "Result has no value"
+            | Error _ -> panicwith (ofBytes "Result has no value"B)
 
         static member inline Value(x: ^t) : ^v =
             (^t: (member Value: ^v) x)
@@ -113,7 +113,6 @@ module Internal =
         static member inline Default(_f: decimal -> unit) : decimal = 0M
         static member inline Default(_f: char -> unit) : char = '\000'
         static member inline Default(_f: bool -> unit) : bool = false
-        static member inline Default(_f: string -> unit) : string = ""
         static member inline Default(_f: unit -> unit) : unit = ()
 
         static member inline Invoke< ^I
@@ -498,7 +497,7 @@ module Operations =
 
     /// Unwrap value or fail with error message (like Rust's unwrap)
     let inline unwrap (x: ^I) : 't =
-        Internal.DefaultWith.Invoke((fun _ -> failwith "unwrap called on empty value"), x)
+        Internal.DefaultWith.Invoke((fun _ -> panicwith (ofBytes "unwrap called on empty value"B)), x)
 
     /// Get the zero value for a numeric type
     let inline zero< ^a when ^a: (static member Zero: ^a)> : ^a =

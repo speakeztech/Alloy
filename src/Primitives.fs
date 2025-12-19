@@ -1,67 +1,60 @@
 #nowarn "9"
 namespace Alloy
 
-open System.Runtime.InteropServices
+open FSharp.NativeInterop
 
-/// Abstract primitives for Fidelity native compilation.
-///
-/// These are extern declarations that Alex (the compiler targeting layer) provides
-/// platform-specific implementations for. The "__fidelity" library name is a marker
-/// that tells Alex to generate platform-appropriate code (syscalls, API calls, etc.).
-///
-/// This follows the F# DllImport pattern but with compile-time resolution instead
-/// of runtime P/Invoke. The PSG captures the full metadata (library, entry point,
-/// calling convention) and Alex dispatches to the appropriate binding.
-///
-/// DO NOT add platform-specific code here. This module must remain platform-agnostic.
-/// Alex provides platform-specific implementations via Bindings modules, dispatching
-/// by entry point name and target platform to generate platform-appropriate MLIR.
+/// Primitive operations and bindings that must be defined before all other Alloy modules.
+/// Alex intercepts calls to Primitives.Bindings and provides platform-specific implementations.
+[<AutoOpen>]
 module Primitives =
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Console I/O Primitives
-    // ═══════════════════════════════════════════════════════════════════════════
+    /// Standard file descriptors
+    [<Literal>]
+    let STDIN = 0
+    [<Literal>]
+    let STDOUT = 1
+    [<Literal>]
+    let STDERR = 2
 
-    // Write bytes to a file descriptor.
-    // Alex implementations: Linux/macOS: write() syscall, Windows: WriteFile() API
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_write_bytes")>]
-    extern int writeBytes(int fd, nativeint buffer, int count)
+    /// Re-export ofBytes from NativeTypes for use with panicwith
+    let inline ofBytes (bytes: byte[]) : NativeStr = NativeString.ofBytes bytes
 
-    // Read bytes from a file descriptor.
-    // Alex implementations: Linux/macOS: read() syscall, Windows: ReadFile() API
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_read_bytes")>]
-    extern int readBytes(int fd, nativeint buffer, int maxCount)
+    /// Fundamental platform bindings. Alex intercepts all calls to this module.
+    /// These are the lowest-level I/O and process control primitives.
+    module Bindings =
+        /// Write bytes to a file descriptor. Alex provides platform implementation.
+        let writeBytes (_fd: int) (_buffer: nativeint) (_count: int) : int = 0
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // String Primitives
-    // ═══════════════════════════════════════════════════════════════════════════
+        /// Read bytes from a file descriptor. Alex provides platform implementation.
+        let readBytes (_fd: int) (_buffer: nativeint) (_maxCount: int) : int = 0
 
-    // Get length of a null-terminated string pointer.
-    // Alex implementations: Inline loop counting bytes until null terminator
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_strlen")>]
-    extern int strlen(nativeint str)
+        /// Abort the process immediately. Alex provides platform implementation.
+        let abort (_exitCode: int) : unit = ()
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Time Primitives
-    // ═══════════════════════════════════════════════════════════════════════════
+    /// Write a NativeStr to a file descriptor.
+    let inline writeStr (fd: int) (s: NativeStr) : int =
+        Bindings.writeBytes fd (NativePtr.toNativeInt s.Pointer) s.Length
 
-    // Get current time in ticks (100-nanosecond intervals since 0001-01-01).
-    // Alex implementations: Linux: clock_gettime, macOS: gettimeofday, Windows: GetSystemTimeAsFileTime
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_get_current_ticks")>]
-    extern int64 getCurrentTicks()
+    /// Write a NativeStr to stderr.
+    let inline writeErr (s: NativeStr) : unit =
+        writeStr STDERR s |> ignore
 
-    // Get high-resolution monotonic ticks for timing.
-    // Alex implementations: Linux: clock_gettime(MONOTONIC), macOS: mach_absolute_time, Windows: QueryPerformanceCounter
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_get_monotonic_ticks")>]
-    extern int64 getMonotonicTicks()
+    /// Write a newline to a file descriptor.
+    let inline writeNewline (fd: int) : unit =
+        let mutable nl = 10uy
+        Bindings.writeBytes fd (NativePtr.toNativeInt &&nl) 1 |> ignore
 
-    // Get tick frequency (ticks per second) for high-resolution timer.
-    // Alex implementations: Linux: 1e9, macOS: mach_timebase_info, Windows: QueryPerformanceFrequency
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_get_tick_frequency")>]
-    extern int64 getTickFrequency()
-
-    // Sleep for specified milliseconds.
-    // Alex implementations: Linux/macOS: nanosleep, Windows: Sleep
-    [<DllImport("__fidelity", CallingConvention = CallingConvention.Cdecl, EntryPoint = "fidelity_sleep")>]
-    extern void sleep(int milliseconds)
-
+    /// Native panic that aborts the program with exit code 1.
+    /// Writes the error message to stderr before aborting.
+    /// Use instead of failwith to avoid BCL string dependency.
+    /// Usage: panicwith (ofBytes "message"B)
+    let inline panicwith (message: NativeStr) : 'T =
+        // Write "panic: " prefix
+        writeErr (ofBytes "panic: "B)
+        // Write the error message
+        writeErr message
+        // Write newline
+        writeNewline STDERR
+        // Abort with exit code 1
+        Bindings.abort 1
+        Unchecked.defaultof<'T>

@@ -1,10 +1,10 @@
 #nowarn "9"
 namespace Alloy
 
-open Alloy.Primitives
+open Alloy.Platform
 
 /// BCL-compatible DateTime type for Fidelity native compilation.
-/// Uses Primitives.getCurrentTicks() extern for actual time retrieval.
+/// Uses Platform.Bindings.getCurrentTicks() for actual time retrieval.
 [<Struct>]
 type DateTime = {
     /// Internal ticks representation (100-nanosecond intervals since 0001-01-01)
@@ -38,25 +38,25 @@ with
     member this.Millisecond: int =
         int ((this.Ticks / 10000L) % 1000L)
 
-    /// Returns a string representation of the DateTime
-    override this.ToString() : string =
+    /// Returns a NativeStr representation of the DateTime
+    member this.ToNativeString() : NativeStr =
         // Placeholder - would need Text.Format integration
-        "DateTime"
+        ofBytes "DateTime"B
 
 /// BCL-compatible DateTime static members.
-/// Delegates to Primitives.getCurrentTicks() extern for actual time.
+/// Delegates to Platform.Bindings.getCurrentTicks() for actual time.
 module DateTime =
     /// Gets the current local date and time.
-    /// Implementation: calls Primitives.getCurrentTicks() which Alex binds to platform syscalls.
-    let inline Now () : DateTime = { Ticks = Primitives.getCurrentTicks() }
+    /// Implementation: calls Platform.Bindings.getCurrentTicks() which Alex binds to platform syscalls.
+    let inline Now () : DateTime = { Ticks = Bindings.getCurrentTicks() }
 
     /// Gets the current UTC date and time.
-    /// For now, same as Now (timezone handling would require additional primitives).
-    let inline UtcNow () : DateTime = { Ticks = Primitives.getCurrentTicks() }
+    /// For now, same as Now (timezone handling would require additional bindings).
+    let inline UtcNow () : DateTime = { Ticks = Bindings.getCurrentTicks() }
 
     /// Gets today's date with time set to 00:00:00.
     let inline Today () : DateTime =
-        let ticks = Primitives.getCurrentTicks()
+        let ticks = Bindings.getCurrentTicks()
         let ticksPerDay = 864000000000L
         { Ticks = (ticks / ticksPerDay) * ticksPerDay }
 
@@ -86,38 +86,38 @@ with
     member this.TotalMilliseconds: float = float this.Ticks / 10000.0
 
 /// BCL-compatible Thread.Sleep.
-/// Delegates to Primitives.sleep() extern.
+/// Delegates to Platform.Bindings.sleep().
 module Threading =
     module Thread =
         /// Suspends the current thread for the specified number of milliseconds.
-        /// Implementation: calls Primitives.sleep() which Alex binds to nanosleep/Sleep.
+        /// Implementation: calls Platform.Bindings.sleep() which Alex binds to nanosleep/Sleep.
         let inline Sleep (milliseconds: int) : unit =
-            Primitives.sleep(milliseconds)
+            Bindings.sleep milliseconds
 
 /// Alloy-specific time utilities (non-BCL).
 /// These provide lower-level access for performance-critical code.
-/// All operations delegate to Primitives externs.
+/// All operations delegate to Platform.Bindings.
 [<RequireQualifiedAccess>]
 module Time =
     /// Gets the current time in ticks (100-nanosecond intervals since 0001-01-01).
-    /// Delegates to Primitives.getCurrentTicks().
+    /// Delegates to Platform.Bindings.getCurrentTicks().
     let inline currentTicks () : int64 =
-        Primitives.getCurrentTicks()
+        Bindings.getCurrentTicks()
 
     /// Gets high-resolution monotonic ticks for timing.
-    /// Delegates to Primitives.getMonotonicTicks().
+    /// Delegates to Platform.Bindings.getMonotonicTicks().
     let inline highResolutionTicks () : int64 =
-        Primitives.getMonotonicTicks()
+        Bindings.getMonotonicTicks()
 
     /// Gets the frequency of the high-resolution timer (ticks per second).
-    /// Delegates to Primitives.getTickFrequency().
+    /// Delegates to Platform.Bindings.getTickFrequency().
     let inline tickFrequency () : int64 =
-        Primitives.getTickFrequency()
+        Bindings.getTickFrequency()
 
     /// Gets the current Unix timestamp (seconds since 1970-01-01).
     /// Computed from ticks with epoch conversion.
     let inline currentUnixTimestamp () : int64 =
-        let ticks = Primitives.getCurrentTicks()
+        let ticks = Bindings.getCurrentTicks()
         // Unix epoch is 1970-01-01, .NET epoch is 0001-01-01
         // Difference: 621355968000000000 ticks
         let unixEpochTicks = 621355968000000000L
@@ -125,6 +125,6 @@ module Time =
         (ticks - unixEpochTicks) / ticksPerSecond
 
     /// Sleeps for the specified number of milliseconds.
-    /// Delegates to Primitives.sleep().
+    /// Delegates to Platform.Bindings.sleep().
     let inline sleep (milliseconds: int) : unit =
-        Primitives.sleep(milliseconds)
+        Bindings.sleep milliseconds

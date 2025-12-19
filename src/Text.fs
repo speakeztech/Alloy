@@ -3,7 +3,6 @@ namespace Alloy
 
 open FSharp.NativeInterop
 open Alloy.Memory
-open Alloy.NativeTypes
 
 /// Zero-allocation text processing using native types only.
 /// No BCL types (System.String, System.Char, etc.) are used.
