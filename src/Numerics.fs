@@ -391,12 +391,9 @@ module Numerics =
         static member inline Add(a: int16, b: int16) = a + b
         static member inline Add(a: uint16, b: uint16) = a + b
         
-        // String concatenation - uses native NativeStr with stack buffer
-        // In native compilation, string = NativeStr
-        static member inline Add(a: NativeStr, b: NativeStr) : NativeStr =
-            let totalLen = a.Length + b.Length
-            let buffer = NativePtr.stackalloc<byte> totalLen
-            NativeString.concat2 buffer a b
+        // String concatenation
+        // In native compilation, FNCS provides string with native semantics
+        static member inline Add(a: string, b: string) : string = a + b
             
         // Subtract implementations
         static member inline Subtract(a: int, b: int) = a - b

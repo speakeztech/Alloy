@@ -38,10 +38,11 @@ with
     member this.Millisecond: int =
         int ((this.Ticks / 10000L) % 1000L)
 
-    /// Returns a NativeStr representation of the DateTime
-    member this.ToNativeString() : NativeStr =
-        // Placeholder - would need Text.Format integration
-        ofBytes "DateTime"B
+    /// Returns a string representation of the DateTime
+    member this.ToString() : string =
+        // For .NET compat, use BCL formatting
+        // FNCS would provide native string construction
+        $"{this.Year}-{this.Month}-{this.Day} {this.Hour}:{this.Minute}:{this.Second}"
 
 /// BCL-compatible DateTime static members.
 /// Delegates to Platform.Bindings.getCurrentTicks() for actual time.

@@ -4,12 +4,12 @@ namespace Alloy
 open FSharp.NativeInterop
 
 /// <summary>
-/// Native pointer operations for freestanding compilation.
-/// Provides a typed wrapper around raw pointers with common operations.
+/// Native pointer operations for native compilation.
+/// Provides typed wrapper functions around raw pointers with common operations.
 /// These map directly to LLVM pointer operations.
 /// </summary>
 [<AutoOpen>]
-module NativePointer =
+module Pointer =
 
     /// <summary>
     /// Creates a null pointer of the specified type.

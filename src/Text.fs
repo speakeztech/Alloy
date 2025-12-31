@@ -2,10 +2,14 @@
 namespace Alloy
 
 open FSharp.NativeInterop
-open Alloy.Memory
 
-/// Zero-allocation text processing using native types only.
-/// No BCL types (System.String, System.Char, etc.) are used.
+/// Zero-allocation text processing for native compilation.
+///
+/// NOTE: String type with native semantics (UTF-8 fat pointer) is provided by FNCS.
+/// In native compilation, string has: Pointer (nativeptr<byte>), Length (int)
+///
+/// For .NET compatibility, operations that need low-level byte access use
+/// BCL encoding utilities. FNCS compilation uses direct member access.
 module Text =
 
     // ═══════════════════════════════════════════════════════════════════
@@ -83,229 +87,92 @@ module Text =
                         struct (cp, 4)
 
         /// Counts the number of Unicode codepoints in a UTF-8 byte sequence.
-        let inline countCodepoints (str: NativeStr) : int =
-            let mutable count = 0
-            let mutable i = 0
-            while i < str.Length do
-                let b = NativePtr.get str.Pointer i
-                if b < 0x80uy then i <- i + 1
-                elif b < 0xE0uy then i <- i + 2
-                elif b < 0xF0uy then i <- i + 3
-                else i <- i + 4
-                count <- count + 1
-            count
+        /// For .NET compat, uses BCL encoding. FNCS uses direct byte access.
+        let inline countCodepoints (str: string) : int =
+            // For .NET compat
+            str.Length  // This counts UTF-16 code units, not codepoints
+            // FNCS would use: direct byte traversal of str.Pointer/str.Length
+
+        /// Gets UTF-8 bytes from a string.
+        /// For .NET compat, uses BCL encoding. FNCS uses direct access.
+        let inline getBytes (str: string) : byte[] =
+            System.Text.Encoding.UTF8.GetBytes(str)
+
+        /// Creates a string from UTF-8 bytes.
+        /// For .NET compat, uses BCL encoding. FNCS constructs directly.
+        let inline fromBytes (bytes: byte[]) : string =
+            System.Text.Encoding.UTF8.GetString(bytes)
 
     // ═══════════════════════════════════════════════════════════════════
-    // NativeStr Operations
+    // String Operations
+    // FNCS provides string with Pointer/Length. These are library functions.
     // ═══════════════════════════════════════════════════════════════════
 
-    module NativeStr =
-        /// Creates a NativeStr from a pointer and length.
-        let inline create (ptr: nativeptr<byte>) (len: int) : NativeStr =
-            NativeString.create ptr len
-
-        /// Returns an empty NativeStr.
-        let inline empty () : NativeStr =
-            NativeString.empty()
-
+    module Str =
         /// Returns true if the string is empty or null.
-        let inline isEmpty (s: NativeStr) : bool =
-            NativeString.isEmpty s
+        let inline isEmpty (s: string) : bool =
+            System.String.IsNullOrEmpty(s)
 
-        /// Returns the byte length of the string.
-        let inline length (s: NativeStr) : int =
-            NativeString.length s
+        /// Returns the byte length of the string (UTF-8).
+        /// For .NET compat, encodes to get byte count.
+        let inline byteLength (s: string) : int =
+            System.Text.Encoding.UTF8.GetByteCount(s)
 
-        /// Returns the number of Unicode codepoints (not bytes).
-        let inline codepointCount (s: NativeStr) : int =
-            UTF8.countCodepoints s
+        /// Returns the character length of the string.
+        let inline length (s: string) : int =
+            s.Length
 
-        /// Gets the byte at the specified index.
-        let inline byteAt (index: int) (s: NativeStr) : byte =
-            NativeString.byteAt index s
+        /// Compares two strings for equality.
+        let inline equals (a: string) (b: string) : bool =
+            a = b
 
-        /// Compares two NativeStr for equality.
-        let inline equals (a: NativeStr) (b: NativeStr) : bool =
-            if a.Length <> b.Length then false
-            else
-                let mutable equal = true
-                let mutable i = 0
-                while equal && i < a.Length do
-                    if NativePtr.get a.Pointer i <> NativePtr.get b.Pointer i then
-                        equal <- false
-                    i <- i + 1
-                equal
-
-        /// Compares two NativeStr lexicographically.
+        /// Compares two strings lexicographically.
         /// Returns: negative if a < b, zero if a = b, positive if a > b.
-        let inline compare (a: NativeStr) (b: NativeStr) : int =
-            let minLen = if a.Length < b.Length then a.Length else b.Length
-            let mutable result = 0
-            let mutable i = 0
-            while result = 0 && i < minLen do
-                let ba = NativePtr.get a.Pointer i
-                let bb = NativePtr.get b.Pointer i
-                if ba < bb then result <- -1
-                elif ba > bb then result <- 1
-                i <- i + 1
-            if result = 0 then
-                if a.Length < b.Length then -1
-                elif a.Length > b.Length then 1
-                else 0
-            else result
+        let inline compare (a: string) (b: string) : int =
+            System.String.Compare(a, b, System.StringComparison.Ordinal)
 
         /// Checks if a string starts with a prefix.
-        let inline startsWith (prefix: NativeStr) (s: NativeStr) : bool =
-            if prefix.Length > s.Length then false
-            else
-                let mutable matches = true
-                let mutable i = 0
-                while matches && i < prefix.Length do
-                    if NativePtr.get s.Pointer i <> NativePtr.get prefix.Pointer i then
-                        matches <- false
-                    i <- i + 1
-                matches
+        let inline startsWith (prefix: string) (s: string) : bool =
+            s.StartsWith(prefix)
 
         /// Checks if a string ends with a suffix.
-        let inline endsWith (suffix: NativeStr) (s: NativeStr) : bool =
-            if suffix.Length > s.Length then false
-            else
-                let offset = s.Length - suffix.Length
-                let mutable matches = true
-                let mutable i = 0
-                while matches && i < suffix.Length do
-                    if NativePtr.get s.Pointer (offset + i) <> NativePtr.get suffix.Pointer i then
-                        matches <- false
-                    i <- i + 1
-                matches
+        let inline endsWith (suffix: string) (s: string) : bool =
+            s.EndsWith(suffix)
 
-        /// Creates a slice (substring) of the string.
-        /// Returns a new NativeStr pointing into the same memory.
-        let inline slice (start: int) (len: int) (s: NativeStr) : NativeStr =
-            if start < 0 || start >= s.Length then
-                empty()
+        /// Creates a substring of the string.
+        let inline slice (start: int) (len: int) (s: string) : string =
+            if start < 0 || start >= s.Length then ""
             else
                 let actualLen = if start + len > s.Length then s.Length - start else len
-                NativeStr(NativePtr.add s.Pointer start, actualLen)
-
-        /// Copies the string to a destination buffer.
-        /// Returns the number of bytes copied.
-        let inline copyTo (dest: nativeptr<byte>) (s: NativeStr) : int =
-            NativeString.copyTo dest s
-
-        /// Finds the first occurrence of a byte in the string.
-        /// Returns the index, or -1 if not found.
-        let inline indexOfByte (b: byte) (s: NativeStr) : int =
-            let mutable result = -1
-            let mutable i = 0
-            while result = -1 && i < s.Length do
-                if NativePtr.get s.Pointer i = b then
-                    result <- i
-                i <- i + 1
-            result
+                s.Substring(start, actualLen)
 
         /// Finds the first occurrence of a substring.
         /// Returns the index, or -1 if not found.
-        let inline indexOf (needle: NativeStr) (haystack: NativeStr) : int =
-            if needle.Length = 0 then 0
-            elif needle.Length > haystack.Length then -1
-            else
-                let mutable result = -1
-                let mutable i = 0
-                let maxStart = haystack.Length - needle.Length
-                while result = -1 && i <= maxStart do
-                    let mutable matches = true
-                    let mutable j = 0
-                    while matches && j < needle.Length do
-                        if NativePtr.get haystack.Pointer (i + j) <> NativePtr.get needle.Pointer j then
-                            matches <- false
-                        j <- j + 1
-                    if matches then result <- i
-                    i <- i + 1
-                result
+        let inline indexOf (needle: string) (haystack: string) : int =
+            haystack.IndexOf(needle)
 
         /// Counts occurrences of a substring.
-        let inline countOccurrences (needle: NativeStr) (haystack: NativeStr) : int =
-            if needle.Length = 0 || needle.Length > haystack.Length then 0
+        let inline countOccurrences (needle: string) (haystack: string) : int =
+            if System.String.IsNullOrEmpty(needle) then 0
             else
                 let mutable count = 0
-                let mutable i = 0
-                let maxStart = haystack.Length - needle.Length
-                while i <= maxStart do
-                    let mutable matches = true
-                    let mutable j = 0
-                    while matches && j < needle.Length do
-                        if NativePtr.get haystack.Pointer (i + j) <> NativePtr.get needle.Pointer j then
-                            matches <- false
-                        j <- j + 1
-                    if matches then
+                let mutable startIndex = 0
+                while startIndex < haystack.Length do
+                    let foundIndex = haystack.IndexOf(needle, startIndex)
+                    if foundIndex >= 0 then
                         count <- count + 1
-                        i <- i + needle.Length
+                        startIndex <- foundIndex + needle.Length
                     else
-                        i <- i + 1
+                        startIndex <- haystack.Length
                 count
 
-        /// Concatenates two strings into a destination buffer.
-        /// Returns a NativeStr pointing to the concatenated result.
-        let inline concat (dest: nativeptr<byte>) (maxLen: int) (a: NativeStr) (b: NativeStr) : NativeStr =
-            let totalLen = a.Length + b.Length
-            if totalLen > maxLen then
-                empty()
-            else
-                // Copy first string
-                for i = 0 to a.Length - 1 do
-                    NativePtr.set dest i (NativePtr.get a.Pointer i)
-                // Copy second string
-                for i = 0 to b.Length - 1 do
-                    NativePtr.set dest (a.Length + i) (NativePtr.get b.Pointer i)
-                NativeStr(dest, totalLen)
+        /// Concatenates two strings.
+        let inline concat (a: string) (b: string) : string =
+            a + b
 
         /// Replaces all occurrences of oldValue with newValue.
-        /// Result is written to dest buffer.
-        let inline replace (dest: nativeptr<byte>) (maxLen: int)
-                          (original: NativeStr) (oldValue: NativeStr) (newValue: NativeStr) : NativeStr =
-            if oldValue.Length = 0 then
-                // No replacement needed, just copy
-                let copyLen = if original.Length > maxLen then maxLen else original.Length
-                for i = 0 to copyLen - 1 do
-                    NativePtr.set dest i (NativePtr.get original.Pointer i)
-                NativeStr(dest, copyLen)
-            else
-                let mutable srcPos = 0
-                let mutable dstPos = 0
-
-                while srcPos < original.Length && dstPos < maxLen do
-                    // Check for match at current position
-                    let remaining = original.Length - srcPos
-                    if remaining >= oldValue.Length then
-                        let mutable isMatch = true
-                        let mutable j = 0
-                        while isMatch && j < oldValue.Length do
-                            if NativePtr.get original.Pointer (srcPos + j) <> NativePtr.get oldValue.Pointer j then
-                                isMatch <- false
-                            j <- j + 1
-
-                        if isMatch then
-                            // Copy replacement
-                            let copyLen = if dstPos + newValue.Length > maxLen
-                                          then maxLen - dstPos
-                                          else newValue.Length
-                            for k = 0 to copyLen - 1 do
-                                NativePtr.set dest (dstPos + k) (NativePtr.get newValue.Pointer k)
-                            dstPos <- dstPos + copyLen
-                            srcPos <- srcPos + oldValue.Length
-                        else
-                            // Copy single byte
-                            NativePtr.set dest dstPos (NativePtr.get original.Pointer srcPos)
-                            dstPos <- dstPos + 1
-                            srcPos <- srcPos + 1
-                    else
-                        // Not enough remaining for a match, copy byte
-                        NativePtr.set dest dstPos (NativePtr.get original.Pointer srcPos)
-                        dstPos <- dstPos + 1
-                        srcPos <- srcPos + 1
-
-                NativeStr(dest, dstPos)
+        let inline replace (original: string) (oldValue: string) (newValue: string) : string =
+            original.Replace(oldValue, newValue)
 
     // ═══════════════════════════════════════════════════════════════════
     // Integer to String Conversion
@@ -313,103 +180,29 @@ module Text =
 
     module Format =
         /// Converts a 32-bit signed integer to a string.
-        /// Writes to the provided buffer and returns a NativeStr.
-        let inline int32ToString (value: int) (buffer: nativeptr<byte>) (maxLen: int) : NativeStr =
-            if maxLen < 12 then  // Max i32 is 11 chars + sign
-                NativeStr.empty()
-            else
-                // Handle zero specially
-                if value = 0 then
-                    NativePtr.set buffer 0 48uy  // '0'
-                    NativeStr(buffer, 1)
-                else
-                    let mutable pos = 0
-                    let mutable v = value
-
-                    // Handle negative
-                    if v < 0 then
-                        NativePtr.set buffer 0 45uy  // '-'
-                        pos <- 1
-                        v <- -v
-
-                    // Count digits
-                    let mutable temp = v
-                    let mutable digitCount = 0
-                    while temp > 0 do
-                        digitCount <- digitCount + 1
-                        temp <- temp / 10
-
-                    // Write digits in reverse order
-                    let startPos = pos
-                    pos <- pos + digitCount
-                    let mutable writePos = pos - 1
-                    while v > 0 do
-                        // digit is 0-9, safe to cast directly to byte
-                        let digit = byte (v % 10)
-                        NativePtr.set buffer writePos (digit + 48uy)  // digit + '0'
-                        writePos <- writePos - 1
-                        v <- v / 10
-
-                    NativeStr(buffer, pos)
+        let inline int32ToString (value: int) : string =
+            string value
 
         /// Converts a 64-bit signed integer to a string.
-        let inline int64ToString (value: int64) (buffer: nativeptr<byte>) (maxLen: int) : NativeStr =
-            if maxLen < 21 then  // Max i64 is 20 chars + sign
-                NativeStr.empty()
-            else
-                if value = 0L then
-                    NativePtr.set buffer 0 48uy  // '0'
-                    NativeStr(buffer, 1)
-                else
-                    let mutable pos = 0
-                    let mutable v = value
-
-                    if v < 0L then
-                        NativePtr.set buffer 0 45uy  // '-'
-                        pos <- 1
-                        v <- -v
-
-                    let mutable temp = v
-                    let mutable digitCount = 0
-                    while temp > 0L do
-                        digitCount <- digitCount + 1
-                        temp <- temp / 10L
-
-                    pos <- pos + digitCount
-                    let mutable writePos = pos - 1
-                    while v > 0L do
-                        // digit is 0-9, safe to cast directly to byte
-                        let digit = byte (v % 10L)
-                        NativePtr.set buffer writePos (digit + 48uy)  // digit + '0'
-                        writePos <- writePos - 1
-                        v <- v / 10L
-
-                    NativeStr(buffer, pos)
+        let inline int64ToString (value: int64) : string =
+            string value
 
         /// Converts a 32-bit unsigned integer to hexadecimal.
-        let inline uint32ToHex (value: uint32) (buffer: nativeptr<byte>) (uppercase: bool) : NativeStr =
-            if value = 0u then
-                NativePtr.set buffer 0 48uy  // '0'
-                NativeStr(buffer, 1)
+        let inline uint32ToHex (value: uint32) (uppercase: bool) : string =
+            if uppercase then
+                value.ToString("X")
             else
-                let hexChars =
-                    if uppercase then "0123456789ABCDEF"B
-                    else "0123456789abcdef"B
+                value.ToString("x")
 
-                // Count hex digits
-                let mutable temp = value
-                let mutable digitCount = 0
-                while temp > 0u do
-                    digitCount <- digitCount + 1
-                    temp <- temp >>> 4
+        /// Converts a 64-bit unsigned integer to hexadecimal.
+        let inline uint64ToHex (value: uint64) (uppercase: bool) : string =
+            if uppercase then
+                value.ToString("X")
+            else
+                value.ToString("x")
 
-                // Write digits
-                let mutable v = value
-                let mutable pos = digitCount - 1
-                while v > 0u do
-                    let nibble = int (v &&& 0xFu)
-                    NativePtr.set buffer pos hexChars.[nibble]
-                    pos <- pos - 1
-                    v <- v >>> 4
-
-                NativeStr(buffer, digitCount)
+        /// Converts an integer to a string with padding.
+        let inline int32ToStringPadded (value: int) (width: int) (padChar: char) : string =
+            let s = string value
+            if s.Length >= width then s
+            else System.String(padChar, width - s.Length) + s

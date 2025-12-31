@@ -8,24 +8,20 @@ description = "Native F# standard library for freestanding compilation"
 
 [build]
 sources = [
-    # Native Types (foundation - no dependencies)
-    "NativeTypes/NativeInt.fs",
-    "NativeTypes/NativePtr.fs",
-    "NativeTypes/NativeSpan.fs",
-    "NativeTypes/NativeArray.fs",
-    "NativeTypes/NativeString.fs",
+    # Bit manipulation and pointer operations (foundation - no type dependencies)
+    "Bits.fs",
+    "Pointer.fs",
 
-    # Primitives (provides native panicwith - must come after NativeString)
+    # Primitives (provides native panicwith)
     "Primitives.fs",
 
     # Fsil - zero-cost SRTP operations (foundation)
     "Fsil/Core.fs",
 
     # Core modules
+    # NOTE: Option type with value semantics is provided by FNCS
+    # NOTE: String type with native semantics is provided by FNCS
     "Core.fs",
-
-    # ValueOption - stack-allocated option type
-    "ValueOption.fs",
 
     # Result - error handling
     "Result.fs",

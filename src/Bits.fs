@@ -2,12 +2,12 @@
 namespace Alloy
 
 /// <summary>
-/// Fixed-width integer types and operations for freestanding compilation.
+/// Fixed-width integer types and bit manipulation operations for native compilation.
 /// These map directly to LLVM integer types without any .NET overhead.
 /// Provides explicit bit-width operations for systems programming.
 /// </summary>
 [<AutoOpen>]
-module NativeInt =
+module Bits =
 
     // ═══════════════════════════════════════════════════════════════════
     // Type aliases for clarity

@@ -6,28 +6,10 @@ namespace Alloy
 module Core =
 
     // ===================================
-    // Zero-allocation option type using F# voption
+    // NOTE: Option type with value semantics is provided by FNCS
+    // FNCS resolves 'option<'T>' to value semantics (stack-allocated, non-nullable)
+    // The shadow machinery has been removed per fsnative-spec
     // ===================================
-
-    /// <summary>
-    /// Zero-allocation option type that shadows F#'s option with voption
-    /// </summary>
-    type option<'T> = voption<'T>
-    
-    /// <summary>
-    /// Creates an option value containing the given value.
-    /// </summary>
-    let inline Some (value: 'T) : 'T option = ValueSome value
-    
-    /// <summary>
-    /// Represents an option value with no value.
-    /// </summary>
-    let inline None<'T> : 'T option = ValueNone
-    
-    let inline (|Some|None|) (opt: 'T option) =
-        match opt with
-        | ValueSome v -> Some v
-        | ValueNone -> None
 
     /// <summary>
     /// Zero-dependency disposable interface for resource management
@@ -114,11 +96,12 @@ module Core =
         | ValueNone -> f ()
 
     /// <summary>
-    /// Converts a value to NativeStr using static resolution.
-    /// Types must implement ToNativeString for native compilation.
+    /// Converts a value to string using static resolution.
+    /// Types must implement ToString for string conversion.
+    /// FNCS provides string with native semantics (UTF-8 fat pointer).
     /// </summary>
-    let inline string< ^T when ^T : (member ToNativeString : unit -> NativeStr)> (x: ^T) : NativeStr =
-        (^T : (member ToNativeString : unit -> NativeStr) x)
+    let inline toString< ^T when ^T : (member ToString : unit -> string)> (x: ^T) : string =
+        (^T : (member ToString : unit -> string) x)
 
     // ===================================
     // Character conversion (no BCL char type)
