@@ -55,4 +55,4 @@ module NativeBuffer =
 
     /// Clears a StackBuffer (fills with zero bytes).
     let inline clearBuffer<'T when 'T : unmanaged> (buffer: StackBuffer<'T>) : unit =
-        fillBuffer buffer Unchecked.defaultof<'T>
+        fillBuffer buffer (NativeDefault.zeroed<'T>())

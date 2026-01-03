@@ -85,7 +85,7 @@ module Core =
     /// <summary>
     /// Gets the default value for a type.
     /// </summary>
-    let inline default_value<'T> = Unchecked.defaultof<'T>
+    let inline default_value<'T> = NativeDefault.zeroed<'T>()
 
     /// <summary>
     /// Uses a fallback function if a value is None.
@@ -259,7 +259,7 @@ module Core =
     /// </summary>
     let inline find (predicate: 'T -> bool) (array: 'T[]) =
         let mutable found = false
-        let mutable result = Unchecked.defaultof<'T>
+        let mutable result = NativeDefault.zeroed<'T>()
         let mutable i = 0
         while not found && i < array.Length do
             if predicate array[i] then
@@ -275,7 +275,7 @@ module Core =
     /// </summary>
     let inline tryFind (predicate: 'T -> bool) (array: 'T[]) =
         let mutable found = false
-        let mutable result = Unchecked.defaultof<'T>
+        let mutable result = NativeDefault.zeroed<'T>()
         let mutable i = 0
         while not found && i < array.Length do
             if predicate array[i] then

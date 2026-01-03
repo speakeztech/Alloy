@@ -46,7 +46,7 @@ type Span<'T> =
     /// <summary>Clears the contents of this span.</summary>
     member this.Clear() =
         for i = 0 to this._length - 1 do
-            this._array.[this._start + i] <- Unchecked.defaultof<'T>
+            this._array.[this._start + i] <- NativeDefault.zeroed<'T>()
     
     /// <summary>Fills the span with a specified value.</summary>
     /// <param name="value">The value to fill the span with.</param>
@@ -244,47 +244,38 @@ module Span =
                 result <- add result span.[i]
             result
 
-    /// <summary>Computes the average of elements in a Span.</summary>
-    /// <param name="span">The span containing elements to average.</param>
-    /// <typeparam name="T">The type of elements in the span, must support zero, addition, and division.</typeparam>
-    /// <returns>The average of all elements in the span.</returns>
-    let inline averageSpan<'T when 'T: (static member Zero: 'T) 
-                        and (^T or Numerics.BasicOps or Numerics.MeasureOps): (static member Add: ^T * ^T -> ^T)
-                        and (^T or Numerics.BasicOps or Numerics.MeasureOps or Numerics.MeasureMeasureOps): (static member Divide: ^T * ^T -> ^T)> 
-        (span: ReadOnlySpan<'T>) : 'T =
-        
-        if span.Length = 0 then 
-            zero<'T>
+    /// <summary>Computes the average of int elements in a Span.</summary>
+    let inline averageSpanInt (span: ReadOnlySpan<int>) : int =
+        if span.Length = 0 then 0
         else
             let mutable sum = span.[0]
             for i = 1 to span.Length - 1 do
-                sum <- add sum span.[i]
-            
-            // Handle each type separately without pattern matching
-            let result =
-                // Integer division
-                if (box sum) :? int then
-                    let mutable intSum = unbox<int> (box sum)
-                    let mutable length = span.Length
-                    box (intSum / length)
-                // Float division
-                elif (box sum) :? float then
-                    let mutable floatSum = unbox<float> (box sum)
-                    let mutable length = float span.Length
-                    box (floatSum / length)
-                // Int64 division
-                elif (box sum) :? int64 then
-                    let mutable longSum = unbox<int64> (box sum)
-                    let mutable length = int64 span.Length
-                    box (longSum / length)
-                // Float32 division
-                elif (box sum) :? float32 then
-                    let mutable float32Sum = unbox<float32> (box sum)
-                    let mutable length = float32 span.Length
-                    box (float32Sum / length)
-                // Default case
-                else
-                    let mutable length = span.Length
-                    box (divide sum (box length :?> 'T))
-                    
-            result :?> 'T
+                sum <- sum + span.[i]
+            sum / span.Length
+
+    /// <summary>Computes the average of int64 elements in a Span.</summary>
+    let inline averageSpanInt64 (span: ReadOnlySpan<int64>) : int64 =
+        if span.Length = 0 then 0L
+        else
+            let mutable sum = span.[0]
+            for i = 1 to span.Length - 1 do
+                sum <- sum + span.[i]
+            sum / int64 span.Length
+
+    /// <summary>Computes the average of float elements in a Span.</summary>
+    let inline averageSpanFloat (span: ReadOnlySpan<float>) : float =
+        if span.Length = 0 then 0.0
+        else
+            let mutable sum = span.[0]
+            for i = 1 to span.Length - 1 do
+                sum <- sum + span.[i]
+            sum / float span.Length
+
+    /// <summary>Computes the average of float32 elements in a Span.</summary>
+    let inline averageSpanFloat32 (span: ReadOnlySpan<float32>) : float32 =
+        if span.Length = 0 then 0.0f
+        else
+            let mutable sum = span.[0]
+            for i = 1 to span.Length - 1 do
+                sum <- sum + span.[i]
+            sum / float32 span.Length

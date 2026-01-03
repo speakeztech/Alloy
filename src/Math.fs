@@ -359,12 +359,8 @@ module Math =
                 
                 guess
         
-        // Type-dispatched sqrt function
-        let inline sqrt (x: ^T) : ^T =
-            match box x with
-            | :? float as f -> sqrtFloat f |> unbox< ^T >
-            | :? float32 as f -> sqrtFloat32 f |> unbox< ^T >
-            | _ -> panicwith (ofBytes "sqrt not implemented for this type"B)
+        // NOTE: Use sqrtFloat or sqrtFloat32 directly for native compilation.
+        // Generic sqrt via runtime dispatch is not available in BCL-free mode.
         
         // Rounding functions - use custom NativeMath implementations
         let inline ceiling (x: float) = NativeMath.ceiling x
@@ -419,23 +415,13 @@ module Math =
                 
             result
         
-        // Type-dispatched trig functions
-        let inline sin (x: ^T) : ^T =
-            match box x with
-            | :? float as f -> sinFloat f |> unbox< ^T >
-            | :? float32 as f -> float32 (sinFloat (float f)) |> unbox< ^T >
-            | _ -> panicwith (ofBytes "sin not implemented for this type"B)
-            
-        let inline cos (x: ^T) : ^T =
-            match box x with
-            | :? float as f -> cosFloat f |> unbox< ^T >
-            | :? float32 as f -> float32 (cosFloat (float f)) |> unbox< ^T >
-            | _ -> panicwith (ofBytes "cos not implemented for this type"B)
-            
-        let inline tan (x: ^T) : ^T =
-            let s = sin x
-            let c = cos x
-            s / c
+        // NOTE: Use sinFloat/cosFloat directly for native compilation.
+        // Generic trig via runtime dispatch is not available in BCL-free mode.
+
+        // Concrete tan implementations
+        let inline tanFloat (x: float) : float = sinFloat x / cosFloat x
+        let inline tanFloat32 (x: float32) : float32 =
+            float32 (sinFloat (float x)) / float32 (cosFloat (float x))
         
         // Min/Max - use direct comparisons
         let inline min (x: ^T) (y: ^T) : ^T = if x < y then x else y
@@ -449,48 +435,76 @@ module Math =
         let inline greaterThanOrEqual (x: ^T) (y: ^T) = x >= y
         
         // Array operations with explicit implementations
-        let inline sum (xs: 'T[]) : 'T = 
+        // These use NativeDefault.zeroed for empty array case
+        let inline sum (xs: 'T[]) : 'T =
             if xs.Length = 0 then
-                match box Unchecked.defaultof<'T> with
-                | :? int -> unbox<'T> 0
-                | :? int64 -> unbox<'T> 0L
-                | :? float -> unbox<'T> 0.0
-                | :? float32 -> unbox<'T> 0.0f
-                | _ -> Unchecked.defaultof<'T>
+                NativeDefault.zeroed<'T>()
             else
                 let mutable acc = xs[0]
                 for i = 1 to xs.Length - 1 do
                     acc <- acc + xs[i]
                 acc
         
-        let inline average (xs: 'T[]) : 'T = 
-            if xs.Length = 0 then 
-                match box Unchecked.defaultof<'T> with
-                | :? int -> unbox<'T> 0
-                | :? int64 -> unbox<'T> 0L
-                | :? float -> unbox<'T> 0.0
-                | :? float32 -> unbox<'T> 0.0f
-                | _ -> Unchecked.defaultof<'T>
+        // Type-specific average implementations (no runtime dispatch)
+        let inline averageInt (xs: int[]) : int =
+            if xs.Length = 0 then 0
             else
                 let mutable acc = xs[0]
                 for i = 1 to xs.Length - 1 do
                     acc <- acc + xs[i]
-                
-                match box acc with
-                | :? int as i -> unbox<'T> (i / xs.Length)
-                | :? int64 as i -> unbox<'T> (i / int64 xs.Length)
-                | :? float as f -> unbox<'T> (f / float xs.Length)
-                | :? float32 as f -> unbox<'T> (f / float32 xs.Length)
-                | _ -> acc  // Default case
+                acc / xs.Length
+
+        let inline averageInt64 (xs: int64[]) : int64 =
+            if xs.Length = 0 then 0L
+            else
+                let mutable acc = xs[0]
+                for i = 1 to xs.Length - 1 do
+                    acc <- acc + xs[i]
+                acc / int64 xs.Length
+
+        let inline averageFloat (xs: float[]) : float =
+            if xs.Length = 0 then 0.0
+            else
+                let mutable acc = xs[0]
+                for i = 1 to xs.Length - 1 do
+                    acc <- acc + xs[i]
+                acc / float xs.Length
+
+        let inline averageFloat32 (xs: float32[]) : float32 =
+            if xs.Length = 0 then 0.0f
+            else
+                let mutable acc = xs[0]
+                for i = 1 to xs.Length - 1 do
+                    acc <- acc + xs[i]
+                acc / float32 xs.Length
         
-        let inline product (xs: 'T[]) : 'T = 
-            if xs.Length = 0 then
-                match box Unchecked.defaultof<'T> with
-                | :? int -> unbox<'T> 1
-                | :? int64 -> unbox<'T> 1L
-                | :? float -> unbox<'T> 1.0
-                | :? float32 -> unbox<'T> 1.0f
-                | _ -> Unchecked.defaultof<'T>
+        // Type-specific product implementations (no runtime dispatch)
+        let inline productInt (xs: int[]) : int =
+            if xs.Length = 0 then 1
+            else
+                let mutable acc = xs[0]
+                for i = 1 to xs.Length - 1 do
+                    acc <- acc * xs[i]
+                acc
+
+        let inline productInt64 (xs: int64[]) : int64 =
+            if xs.Length = 0 then 1L
+            else
+                let mutable acc = xs[0]
+                for i = 1 to xs.Length - 1 do
+                    acc <- acc * xs[i]
+                acc
+
+        let inline productFloat (xs: float[]) : float =
+            if xs.Length = 0 then 1.0
+            else
+                let mutable acc = xs[0]
+                for i = 1 to xs.Length - 1 do
+                    acc <- acc * xs[i]
+                acc
+
+        let inline productFloat32 (xs: float32[]) : float32 =
+            if xs.Length = 0 then 1.0f
             else
                 let mutable acc = xs[0]
                 for i = 1 to xs.Length - 1 do

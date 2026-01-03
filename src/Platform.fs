@@ -28,34 +28,38 @@ module Platform =
     module Bindings =
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // String Bindings (stub - needs FNCS intrinsic)
+        // String Bindings
         // ═══════════════════════════════════════════════════════════════════════════
 
         /// Get length of a null-terminated string pointer.
-        /// TODO: Should be implemented as native loop or FNCS intrinsic
-        let strlen (str: nativeint) : int =
-            Unchecked.defaultof<int>
+        /// Implemented as a native loop - scans for null terminator.
+        let inline strlen (str: nativeint) : int =
+            let ptr = NativePtr.ofNativeInt<byte> str
+            let mutable len = 0
+            while NativePtr.get ptr len <> 0uy do
+                len <- len + 1
+            len
 
         // ═══════════════════════════════════════════════════════════════════════════
         // Time Bindings (stubs - need FNCS intrinsics: Sys.clock_gettime, etc.)
         // ═══════════════════════════════════════════════════════════════════════════
 
         /// Get current time in ticks (100-nanosecond intervals since 0001-01-01).
-        /// TODO: Needs Sys.clock_gettime intrinsic
+        /// TODO: Needs Sys.clock_gettime intrinsic - returns 0 for now
         let getCurrentTicks () : int64 =
-            Unchecked.defaultof<int64>
+            NativeDefault.zeroed<int64>()
 
         /// Get high-resolution monotonic ticks for timing.
-        /// TODO: Needs Sys.clock_gettime(MONOTONIC) intrinsic
+        /// TODO: Needs Sys.clock_gettime(MONOTONIC) intrinsic - returns 0 for now
         let getMonotonicTicks () : int64 =
-            Unchecked.defaultof<int64>
+            NativeDefault.zeroed<int64>()
 
         /// Get tick frequency (ticks per second) for high-resolution timer.
-        /// TODO: Needs platform-specific frequency intrinsic
+        /// TODO: Needs platform-specific frequency intrinsic - returns 0 for now
         let getTickFrequency () : int64 =
-            Unchecked.defaultof<int64>
+            NativeDefault.zeroed<int64>()
 
         /// Sleep for specified milliseconds.
-        /// TODO: Needs Sys.nanosleep intrinsic
+        /// TODO: Needs Sys.nanosleep intrinsic - does nothing for now
         let sleep (milliseconds: int) : unit =
             ()

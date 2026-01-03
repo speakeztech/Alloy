@@ -24,22 +24,16 @@ module Primitives =
     /// The -1 accounts for F#'s null terminator in byte literals.
     ///
     /// NATIVE: FNCS provides this as an intrinsic - byte literals become NativeStr directly.
-    /// This function exists for API consistency; actual implementation is compiler-provided.
     let inline ofBytes (bytes: byte[]) : string =
-        // FNCS intrinsic: byte[] literal → NativeStr
-        // The compiler recognizes this pattern and emits the string directly
-        // Length is bytes.Length - 1 (exclude null terminator)
-        Unchecked.defaultof<string> // Placeholder - FNCS provides actual implementation
+        // Get pointer to first byte and length (exclude null terminator)
+        let ptr = NativePtr.ofNativeInt<byte> (NativePtr.toNativeInt &&bytes.[0])
+        let len = bytes.Length - 1
+        NativeStr.fromPointer ptr len
 
     /// Creates a string from a buffer pointer and length.
-    /// In native compilation, FNCS provides this as an intrinsic.
-    ///
-    /// NATIVE: Constructs NativeStr = {ptr: pointer, len: length}
-    /// This function exists for API consistency; actual implementation is compiler-provided.
+    /// FNCS intrinsic: constructs NativeStr = {ptr: pointer, len: length}
     let inline fromPointer (pointer: nativeptr<byte>) (length: int) : string =
-        // FNCS intrinsic: (ptr, len) → NativeStr
-        // The compiler recognizes this pattern and constructs the string directly
-        Unchecked.defaultof<string> // Placeholder - FNCS provides actual implementation
+        NativeStr.fromPointer pointer length
 
     /// Write a string to a file descriptor using Sys.write intrinsic.
     /// In native compilation, string is a UTF-8 fat pointer with intrinsic Pointer and Length.

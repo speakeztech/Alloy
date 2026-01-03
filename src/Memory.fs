@@ -100,10 +100,10 @@ module Memory =
             match this._array, this._pointer with
             | ValueSome arr, ValueNone ->
                 for i = 0 to this._length - 1 do
-                    arr[this._start + i] <- Unchecked.defaultof<'T>
+                    arr[this._start + i] <- NativeDefault.zeroed<'T>()
             | ValueNone, ValueSome ptr ->
                 for i = 0 to this._length - 1 do
-                    setAtPtr ptr i Unchecked.defaultof<'T>
+                    setAtPtr ptr i (NativeDefault.zeroed<'T>())
             | _ -> panicwith (ofBytes "Invalid span state"B)
         
         /// <summary>Fills the span with a specified value.</summary>
@@ -411,7 +411,7 @@ module Memory =
     /// <param name="count">Number of elements to zero</param>
     let inline zeroElements<'T when 'T : unmanaged> (dest: nativeptr<'T>) (count: int) : unit =
         for i = 0 to count - 1 do
-            NativePtr.set dest i Unchecked.defaultof<'T>
+            NativePtr.set dest i (NativeDefault.zeroed<'T>())
 
     /// <summary>
     /// Fill a memory region with a byte value.
