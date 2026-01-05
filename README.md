@@ -6,7 +6,7 @@
 > fully absorbed into FNCS (F# Native Compiler Services). The repository will be
 > made read-only and eventually delisted from active development.
 >
-> See blog entry: [Absorbing Alloy: When Your Library Becomes Your Language](/blog/absorbing-alloy/)
+> See blog entry: [Absorbing Alloy](https://speakez.tech/blog/absorbing-alloy/)
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![License: Commercial](https://img.shields.io/badge/License-Commercial-orange.svg)](Commercial.md)
